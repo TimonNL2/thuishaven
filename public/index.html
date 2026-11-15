@@ -1,0 +1,263 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Thuishaven</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b4588'/%3E%3Ccircle cx='22' cy='10' r='4' fill='%23f6c37a'/%3E%3Cpath d='M0 26l9-13 6 8 5-6 12 13v4H0z' fill='%230b1826'/%3E%3C/svg%3E">
+<link rel="preload" href="/vendor/bricolage.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/vendor/instrument.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/vendor/maplibre-gl.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-view="home">
+<canvas id="sky" aria-hidden="true"></canvas>
+
+<!-- ================================================= startscherm -->
+<div class="view view-home" id="view-home">
+  <header class="bar">
+    <div class="stats" id="stats" aria-label="Toestand van de server"></div>
+    <nav class="bar-nav" aria-label="Schermen">
+      <a class="pill" href="#wereldbol">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-3.5 3.6-3.5 14.4 0 18M12 3c3.5 3.6 3.5 14.4 0 18"/></svg>
+        Wereldbol
+      </a>
+      <button type="button" class="pill" id="btn-settings">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+        Instellingen
+      </button>
+    </nav>
+  </header>
+
+  <section class="hello" aria-label="Tijd en weer">
+    <div>
+      <p class="greeting" id="greeting">Hallo</p>
+      <p class="clock" id="clock">00:00</p>
+      <p class="date" id="date"></p>
+    </div>
+    <div class="now" id="now" hidden>
+      <div class="now-main">
+        <span id="now-icon"></span>
+        <span class="now-temp" id="now-temp"></span>
+      </div>
+      <p class="now-desc" id="now-desc"></p>
+      <p class="now-rain" id="now-rain"></p>
+    </div>
+  </section>
+
+  <form class="search" id="search" role="search" autocomplete="off">
+    <label class="sr" for="q">Zoek op internet of typ een adres</label>
+    <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+    <input id="q" name="q" type="text" placeholder="Zoek op internet of typ een adres" autofocus spellcheck="false" autocapitalize="off" aria-controls="suggest">
+    <ul class="suggest" id="suggest" hidden></ul>
+  </form>
+
+  <main>
+    <section aria-labelledby="links-title">
+      <div class="section-head">
+        <h2 id="links-title">Snelkoppelingen</h2>
+        <button type="button" class="link-btn" id="links-edit">Bewerken</button>
+      </div>
+      <div id="links-body"></div>
+    </section>
+
+    <div class="widgets">
+      <section class="card w-weather" aria-labelledby="weather-title">
+        <div class="card-head">
+          <h2 id="weather-title">Weer</h2>
+          <span class="card-meta" id="weather-place"></span>
+        </div>
+        <div id="weather-body"><p class="quiet">Weer ophalen…</p></div>
+      </section>
+
+      <section class="card w-todo" aria-labelledby="todo-title">
+        <div class="card-head">
+          <h2 id="todo-title">Te doen</h2>
+          <button type="button" class="link-btn" id="todo-clear" hidden>Ruim afgevinkte op</button>
+        </div>
+        <form id="todo-form" class="inline-form">
+          <label class="sr" for="todo-input">Nieuwe taak</label>
+          <input id="todo-input" type="text" placeholder="Wat moet er gebeuren?" maxlength="200" autocomplete="off">
+          <button class="btn" type="submit">Voeg toe</button>
+        </form>
+        <ul id="todo-list" class="rows"></ul>
+      </section>
+
+      <section class="card w-countdown" aria-labelledby="countdown-title">
+        <div class="card-head">
+          <h2 id="countdown-title">Aftellen</h2>
+          <button type="button" class="link-btn" id="countdown-add">Datum toevoegen</button>
+        </div>
+        <form id="countdown-form" class="inline-form stack" hidden>
+          <label class="sr" for="countdown-name">Waar tel je naar af?</label>
+          <input id="countdown-name" type="text" placeholder="Bijvoorbeeld: vakantie" required maxlength="60">
+          <label class="sr" for="countdown-date">Datum</label>
+          <input id="countdown-date" type="date" required>
+          <button class="btn" type="submit">Voeg toe</button>
+        </form>
+        <ul id="countdown-list" class="rows"></ul>
+      </section>
+
+      <section class="card w-notes" aria-labelledby="notes-title">
+        <div class="card-head">
+          <h2 id="notes-title">Kladblok</h2>
+          <span class="card-meta" id="notes-state"></span>
+        </div>
+        <label class="sr" for="notes">Kladblok</label>
+        <textarea id="notes" placeholder="Typ hier wat je niet wilt vergeten. Het wordt vanzelf opgeslagen."></textarea>
+      </section>
+
+      <section class="card w-news" aria-labelledby="news-title">
+        <div class="card-head">
+          <h2 id="news-title">Nieuws</h2>
+          <span class="card-meta" id="news-meta"></span>
+        </div>
+        <ul id="news-list" class="news"><li class="quiet">Koppen ophalen…</li></ul>
+      </section>
+
+      <section class="card w-otd" aria-labelledby="otd-title">
+        <div class="card-head">
+          <h2 id="otd-title">Vandaag in de geschiedenis</h2>
+          <button type="button" class="link-btn" id="otd-next" hidden>Nog een</button>
+        </div>
+        <div id="otd-body"><p class="quiet">Even bladeren…</p></div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<!-- =================================================== wereldbol -->
+<div class="view view-globe" id="view-globe" hidden>
+  <div id="map" role="application" aria-label="Wereldbol met satellietbeelden. Je plekken staan ook in de lijst ernaast."></div>
+  <div class="globe-tip" id="globe-tip" hidden></div>
+
+  <aside class="globe-panel card" aria-label="Je plekken">
+    <div class="card-head">
+      <h1>Wereldbol</h1>
+      <a class="pill" href="#">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6.5 9.5V20h11V9.5"/></svg>
+        Startscherm
+      </a>
+    </div>
+    <p class="travel-line" id="travel-line"></p>
+    <div class="place-add">
+      <label class="sr" for="place-q">Voeg een plek toe</label>
+      <input id="place-q" type="text" placeholder="Voeg een plek toe, bijvoorbeeld Lissabon" autocomplete="off" spellcheck="false">
+      <ul class="results" id="place-results" hidden></ul>
+    </div>
+    <p class="hint">Dubbelklikken op de bol zet daar ook een punt.</p>
+    <div class="place-editor" id="place-editor" hidden></div>
+    <ul class="place-list" id="place-list"></ul>
+  </aside>
+
+  <div class="globe-tools">
+    <fieldset class="seg" id="globe-mode">
+      <legend class="sr">Beeld</legend>
+      <label><input type="radio" name="globe-mode" value="day"> Dag</label>
+      <label><input type="radio" name="globe-mode" value="night"> Nacht</label>
+    </fieldset>
+    <label class="pill check-pill"><input type="checkbox" id="globe-labels"> Namen</label>
+    <button type="button" class="round" id="globe-home" title="Vlieg naar huis" aria-label="Vlieg naar huis">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6.5 9.5V20h11V9.5"/></svg>
+    </button>
+    <button type="button" class="round" id="globe-world" title="Toon de hele wereld" aria-label="Toon de hele wereld">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-3.5 3.6-3.5 14.4 0 18M12 3c3.5 3.6 3.5 14.4 0 18"/></svg>
+    </button>
+    <button type="button" class="round" id="globe-in" title="Zoom in" aria-label="Zoom in">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <button type="button" class="round" id="globe-out" title="Zoom uit" aria-label="Zoom uit">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ===================================================== dialogen -->
+<dialog id="settings" class="dialog" aria-labelledby="settings-title">
+  <form method="dialog" class="dialog-body">
+    <h2 id="settings-title">Instellingen</h2>
+
+    <label class="field">
+      <span class="field-label">Hoe heet je?</span>
+      <input id="set-name" type="text" autocomplete="off" maxlength="40" placeholder="Voor de begroeting">
+    </label>
+
+    <div class="field">
+      <label class="field-label" for="set-home-q">Thuis</label>
+      <p class="field-value" id="set-home-current"></p>
+      <input id="set-home-q" type="text" placeholder="Zoek je woonplaats" autocomplete="off" spellcheck="false">
+      <ul class="results" id="set-home-results" hidden></ul>
+      <p class="hint">Hiervoor geldt het weer en de lucht op de achtergrond.</p>
+    </div>
+
+    <label class="field">
+      <span class="field-label">Lucht op de achtergrond</span>
+      <select id="set-sky">
+        <option value="auto">Het echte weer bij mij thuis</option>
+        <option value="helder">Altijd helder</option>
+        <option value="halfbewolkt">Altijd half bewolkt</option>
+        <option value="bewolkt">Altijd bewolkt</option>
+        <option value="motregen">Altijd motregen</option>
+        <option value="regen">Altijd regen</option>
+        <option value="sneeuw">Altijd sneeuw</option>
+        <option value="mist">Altijd mist</option>
+        <option value="onweer">Altijd onweer</option>
+      </select>
+      <span class="hint">Dag, schemer en nacht volgen altijd de echte zon.</span>
+    </label>
+
+    <label class="field">
+      <span class="field-label">Zoekmachine</span>
+      <select id="set-engine"></select>
+    </label>
+
+    <fieldset class="field">
+      <legend class="field-label">Wereldbol</legend>
+      <label class="check"><input type="checkbox" id="set-rotate"> Draai langzaam rond als ik niets doe</label>
+      <label class="check"><input type="checkbox" id="set-iss"> Toon waar het ruimtestation ISS vliegt</label>
+    </fieldset>
+
+    <label class="field">
+      <span class="field-label">Nieuwsbronnen</span>
+      <textarea id="set-feeds" rows="3" spellcheck="false"></textarea>
+      <span class="hint">Eén RSS-adres per regel.</span>
+    </label>
+
+    <div class="field">
+      <span class="field-label">Backup</span>
+      <div class="button-row">
+        <a class="ghost" href="/api/state?download=1" download>Download backup</a>
+        <button type="button" class="ghost" id="set-import-btn">Zet backup terug</button>
+        <input type="file" id="set-import" accept="application/json,.json" hidden>
+      </div>
+      <p class="hint">Een backup bevat al je plekken, snelkoppelingen, taken en notities.</p>
+    </div>
+
+    <div class="dialog-actions">
+      <button class="btn" value="close">Klaar</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="links-dialog" class="dialog dialog-wide" aria-labelledby="links-dialog-title">
+  <form method="dialog" class="dialog-body" id="links-form">
+    <h2 id="links-dialog-title">Snelkoppelingen bewerken</h2>
+    <p class="hint">Vink ‘status’ aan bij diensten op je eigen netwerk. Je ziet dan in één oogopslag of ze bereikbaar zijn en hoe snel ze reageren.</p>
+    <div id="links-editor"></div>
+    <div class="dialog-actions">
+      <button type="button" class="ghost" id="links-add-group">Groep toevoegen</button>
+      <span class="spacer"></span>
+      <button type="button" class="ghost" id="links-cancel">Annuleer</button>
+      <button type="submit" class="btn" id="links-save">Bewaar snelkoppelingen</button>
+    </div>
+  </form>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="/vendor/d3.min.js" defer></script>
+<script src="/vendor/topojson-client.min.js" defer></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
