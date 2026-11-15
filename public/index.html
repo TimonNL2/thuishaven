@@ -198,14 +198,17 @@
         </div>
         <div class="ride-row">
           <span class="ride-label">Vertrek</span>
-          <div class="chips" id="ride-depart">
-            <button type="button" data-offset="0">Nu</button>
-            <button type="button" data-offset="15">Over 15 min</button>
-            <button type="button" data-offset="30">Over 30 min</button>
-            <button type="button" data-offset="60">Over 1 uur</button>
+          <div class="chips" id="ride-day">
+            <button type="button" data-day="0">Vandaag</button>
+            <button type="button" data-day="1">Morgen</button>
+            <button type="button" data-day="2">Overmorgen</button>
           </div>
+        </div>
+        <div class="ride-row">
+          <span class="ride-label">Tijd</span>
           <label class="sr" for="ride-time">Vertrektijd</label>
           <input id="ride-time" type="time">
+          <div class="chips"><button type="button" id="ride-now">Nu</button></div>
         </div>
         <div class="ride-row">
           <span class="ride-label">Verkeer</span>

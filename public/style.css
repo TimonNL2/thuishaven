@@ -400,7 +400,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
 .chips button { border: 1px solid var(--edge); background: var(--raise); border-radius: 999px; padding: 5px 11px; font-size: 14px; }
 .chips button:hover { border-color: var(--edge-strong); }
 .chips button[aria-pressed="true"] { background: var(--text); color: #0b1522; border-color: var(--text); }
-#ride-time { width: 96px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--edge); border-radius: 8px; padding: 5px 8px; }
+#ride-time { width: 112px; min-height: 36px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--edge); border-radius: 8px; padding: 5px 8px; }
 .ride-traffic { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .ride-traffic input[type="number"] { width: 62px; padding: 5px 6px; text-align: right; }
 
@@ -411,7 +411,14 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
 .ride-title.mid { color: #ff9d4d; }
 .ride-title.heavy { color: var(--down); }
 .ride-text { font-size: 16px; }
-.ride-tip { font-weight: 600; padding: 9px 12px; border-radius: 10px; background: var(--raise-strong); }
+.ride-note { font-weight: 600; padding: 9px 12px; border-radius: 10px; background: var(--raise-strong); }
+.ride-routes { display: grid; gap: 6px; }
+.ride-routes button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; text-align: left; border: 1px solid var(--edge); border-radius: 10px; background: var(--raise); }
+.ride-routes button:hover { border-color: var(--edge-strong); }
+.ride-routes button[aria-pressed="true"] { border-color: var(--text); background: var(--raise-strong); }
+.ride-routes i { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.ride-routes .grow { flex: 1; font-weight: 600; }
+.ride-routes .meta { color: var(--muted); font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ride-times, .ride-wait { color: var(--muted); }
 .ride-line { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin-top: 4px; }
 .ride-line i { flex: 1; }
@@ -458,30 +465,80 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
   .w-notes, .w-news { grid-column: 1 / -1; }
 }
 @media (max-width: 760px) {
-  .view-home { padding: 14px 14px 40px; }
-  .stats { gap: 14px; padding: 6px 14px; border-radius: 14px; flex-wrap: wrap; }
-  .stat i { min-width: 70px; }
+  body { font-size: 16px; }
+  .view-home { padding: 12px 12px 40px; }
+
+  /* Bovenbalk: de schermkiezer over de volle breedte, de rest eronder. */
+  .bar { gap: 10px; }
+  .bar-nav { width: 100%; margin: 0; flex-wrap: wrap; order: -1; }
+  .tabs { flex: 1 1 100%; }
+  .tabs a { flex: 1; justify-content: center; height: 40px; }
+  .bar-nav .menu-wrap, .bar-nav > .pill { flex: 1; }
+  .bar-nav .pill { width: 100%; justify-content: center; height: 44px; }
+  .menu { left: 0; right: auto; min-width: 100%; }
+  .menu button { padding-top: 12px; padding-bottom: 12px; }
+  .stats { width: 100%; gap: 8px 16px; padding: 10px 14px; border-radius: 14px; flex-wrap: wrap; }
+  .stat { flex: 1 1 40%; }
+  .stat i { min-width: 0; }
   .stat-host { display: none; }
-  .pill { padding: 0 12px; }
-  .hello { flex-direction: column; align-items: flex-start; gap: 16px; margin: 20px 0; }
+
+  .hello { flex-direction: column; align-items: flex-start; gap: 14px; margin: 18px 0; }
+  .clock { font-size: 76px; }
+  .greeting, .date { font-size: 19px; }
   .now { text-align: left; }
   .now-main { justify-content: flex-start; }
-  .now-temp { font-size: 56px; }
-  .widgets { grid-template-columns: 1fr; }
-  .widgets > .card { grid-column: 1 / -1; }
-  .news { columns: 1; }
-  .pve { grid-template-columns: 1fr; }
-  .tiles { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
-  .tile-state span { display: none; }
-  .edit-link { grid-template-columns: 1fr 1fr; }
+  .now-main svg { width: 46px; height: 46px; }
+  .now-temp { font-size: 54px; }
+  .now-desc { font-size: 18px; }
+  .search { margin-bottom: 24px; }
+  .search input { height: 52px; font-size: 16px; }
+  .search-icon { top: 17px; }
+  .suggest { top: 52px; }
 
-  .globe-top { left: 10px; right: 10px; top: 10px; flex-direction: column-reverse; align-items: stretch; }
+  .tiles { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .tile { min-height: 60px; padding: 10px; gap: 10px; }
+  .tile-sub { display: none; }
+  .tile-state span:first-child { display: none; }
+  .pve { grid-template-columns: 1fr; }
+  .widgets { grid-template-columns: 1fr; gap: 12px; }
+  .widgets > .card { grid-column: 1 / -1; }
+  .card { padding: 16px; }
+  .news { columns: 1; }
+  .inline-form .btn, .btn, .ghost { min-height: 44px; }
+  input[type="text"], input[type="number"], input[type="date"], input[type="time"], select, textarea { font-size: 16px; min-height: 44px; }   /* 16px: anders zoomt iOS in bij het typen */
+  .remove { width: 40px; height: 40px; }
+  .rows > li { min-height: 48px; }
+  .todo-check { width: 22px; height: 22px; }
+  .edit-link { grid-template-columns: 1fr 1fr; }
+  .dialog-body { padding: 18px; }
+
+  /* Wereldbol: bediening boven, plekken onder, de bol ertussen. */
+  .globe-top { left: 10px; right: 10px; top: 10px; flex-direction: column-reverse; align-items: stretch; gap: 8px; }
   .globe-left, .ride-left { width: auto; }
-  .ride-left { max-height: 58vh; }
   .globe-right { justify-content: space-between; }
-  .globe-side { right: 10px; top: auto; bottom: 110px; transform: none; }
+  .globe-right .tabs { order: -1; }
+  .globe-search .travel-line { font-size: 14px; }
+  .globe-side { right: 10px; top: auto; bottom: 108px; transform: none; }
+  .round { width: 44px; height: 44px; }
   .place-list { left: 10px; bottom: 44px; max-width: calc(100% - 20px); }
-  .bar-nav { flex-wrap: wrap; justify-content: flex-end; }
+  .place-list button { min-height: 40px; }
+  .seg label { height: 40px; }
+
+  /* Rit: eerst de schermkiezer, dan de kaart, dan het advies en de bediening om door te scrollen. */
+  .view-ride { overflow-y: auto; display: flex; flex-direction: column; }
+  .view-ride .globe-top { display: contents; }
+  .view-ride .globe-right { order: 0; padding: 10px; position: sticky; top: 0; z-index: 5; background: #0a121c; }
+  #ride-map { order: 1; position: relative; inset: auto; flex: none; height: 46vh; min-height: 280px; }
+  .ride-left { order: 2; max-height: none; overflow: visible; padding: 10px; display: flex; flex-direction: column; }
+  .ride-verdict { order: -1; }                 /* het advies eerst, de instellingen eronder */
+  .ride-form, .ride-verdict { background: var(--glass-solid); }
+  .ride-title { font-size: 28px; }
+  .chips button { min-height: 40px; padding: 6px 14px; }
+  .ride-slots { height: 64px; gap: 2px; }
+  .ride-line { height: 18px; }
+  .ride-traffic { min-height: 44px; }
+  .ride-traffic input[type="number"] { width: 72px; }
+  #ride-time { width: 130px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

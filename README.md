@@ -19,12 +19,12 @@ of onweer zie je dat ook op je scherm.
   eigen RSS-bronnen.
 - **Vijf landschappen**: bergmeer, hooggebergte, heuvelland, woestijn en eilanden, te kiezen
   met de knop Achtergrond. Het weer en het licht kloppen in elk landschap.
-- **Rit**: rijd ik droog? Kies van waar naar waar je rijdt (handig op de motor of fiets).
-  Je ziet de route op de kaart, gekleurd per stuk weg naar de regen die er valt op het
-  moment dat jij daar langskomt, met de regenradar eronder. Het advies zegt of je een
-  regenbroek nodig hebt en welk vertrekmoment droger is. Regen komt per vijf minuten van
-  Buienradar (twee uur vooruit) en daarna van Open-Meteo. Files worden niet gemeten; je
-  kiest zelf tussen je normale en je drukke reistijd.
+- **Rit**: rijd ik droog? Kies van waar naar waar je rijdt en op welke dag en tijd (handig
+  op de motor of fiets). Het dashboard zoekt de snelste route en een paar omwegen, kleurt
+  elke route per stuk weg naar de regen die er valt op het moment dat jij daar langskomt,
+  en raadt de droogste route en het droogste vertrekmoment aan. Binnen twee uur komt de
+  regen per vijf minuten van Buienradar, verder vooruit (tot drie dagen) van Open-Meteo.
+  Files worden niet gemeten; je kiest zelf tussen je normale en je drukke reistijd.
 - **Wereldbol** op een eigen scherm: satellietbeelden waarop je tot straatniveau inzoomt,
   een nachtstand met stadslichten, punten voor waar je bent geweest of nog heen wilt,
   bezochte landen die oplichten, de afstand tot huis en waar het ISS nu vliegt.
