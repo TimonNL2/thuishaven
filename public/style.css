@@ -386,49 +386,75 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
 
 .view-ride { position: fixed; inset: 0; background: #0a121c; overflow: hidden; }
 #ride-map { position: absolute; inset: 0; }
-.ride-left { width: min(430px, 100%); display: grid; gap: 10px; max-height: calc(100vh - 40px); overflow-y: auto; scrollbar-width: thin; }
-.ride-form, .ride-verdict { background: rgba(9, 17, 29, 0.86); padding: 14px; }
-.ride-form { display: grid; gap: 12px; }
-.ride-places { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
-.ride-places .place-add input { padding-left: 12px; height: 40px; }
+
+/* Eén paneel links, zoals in een routeplanner: bovenaan de rit, dan het advies, dan de routes. */
+.ride-left {
+  width: min(450px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; scrollbar-width: thin;
+  background: rgba(10, 18, 30, 0.94); border: 1px solid var(--edge); border-radius: 18px;
+  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+}
+.ride-form, .ride-verdict, .ride-via { padding: 18px 20px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.ride-verdict, .ride-via { border-top: 1px solid var(--edge); }
+.ride-form h1 { font: 600 22px/1.2 var(--display); letter-spacing: -0.01em; }
+
+.ride-places { display: grid; grid-template-columns: 14px 1fr 40px; gap: 8px 10px; align-items: center; }
+.ride-places .place-add input { padding-left: 12px; height: 44px; border-radius: 10px; }
 .ride-places .place-add input::placeholder { color: var(--text); opacity: 1; font-weight: 500; }
 .ride-places .place-add input:focus::placeholder { color: var(--muted); font-weight: 400; }
-#ride-swap { grid-column: 2; grid-row: 1 / span 2; background: var(--raise); }
+#ride-swap { grid-column: 3; grid-row: 1 / span 2; background: var(--raise); width: 40px; height: 40px; }
+.ride-dot { width: 12px; height: 12px; border-radius: 50%; border: 3px solid #fff; justify-self: center; }
+.ride-dot.to { border-color: var(--gold); background: var(--gold); }
+
 .ride-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ride-label { font-weight: 600; font-size: 14px; min-width: 62px; }
+.ride-label { font-weight: 600; font-size: 14px; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.chips button { border: 1px solid var(--edge); background: var(--raise); border-radius: 999px; padding: 5px 11px; font-size: 14px; }
+.chips button { border: 1px solid var(--edge); background: var(--raise); border-radius: 999px; padding: 6px 13px; font-size: 14px; font-weight: 500; }
 .chips button:hover { border-color: var(--edge-strong); }
 .chips button[aria-pressed="true"] { background: var(--text); color: #0b1522; border-color: var(--text); }
-#ride-time { width: 112px; min-height: 36px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--edge); border-radius: 8px; padding: 5px 8px; }
+#ride-time { width: 112px; min-height: 36px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--edge); border-radius: 8px; padding: 5px 8px; margin-left: auto; }
 .ride-traffic { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
 .ride-traffic input[type="number"] { width: 62px; padding: 5px 6px; text-align: right; }
 
-.ride-verdict { display: grid; gap: 8px; }
-.ride-title { font: 600 30px/1.1 var(--display); letter-spacing: -0.02em; }
+.ride-title { font: 600 34px/1.05 var(--display); letter-spacing: -0.025em; }
 .ride-title.dry { color: var(--up); }
 .ride-title.light { color: #f6d06a; }
 .ride-title.mid { color: #ff9d4d; }
 .ride-title.heavy { color: var(--down); }
 .ride-text { font-size: 16px; }
-.ride-note { font-weight: 600; padding: 9px 12px; border-radius: 10px; background: var(--raise-strong); }
-.ride-routes { display: grid; gap: 6px; }
-.ride-routes button { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; text-align: left; border: 1px solid var(--edge); border-radius: 10px; background: var(--raise); }
-.ride-routes button:hover { border-color: var(--edge-strong); }
-.ride-routes button[aria-pressed="true"] { border-color: var(--text); background: var(--raise-strong); }
-.ride-routes i { width: 12px; height: 12px; border-radius: 50%; flex: none; }
-.ride-routes .grow { flex: 1; font-weight: 600; }
-.ride-routes .meta { color: var(--muted); font-size: 14px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ride-note { font-weight: 600; padding: 10px 13px; border-radius: 10px; background: var(--raise-strong); }
 .ride-times, .ride-wait { color: var(--muted); }
-.ride-line { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin-top: 4px; }
+.ride-head { font: 600 15px/1.2 var(--body); margin-top: 8px; }
+
+.ride-routes { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.ride-route { display: flex; align-items: center; gap: 4px; border: 1px solid var(--edge); border-radius: 12px; background: var(--raise); }
+.ride-route:hover { border-color: var(--edge-strong); }
+.ride-route.on { border-color: var(--text); background: var(--raise-strong); box-shadow: inset 3px 0 0 var(--text); }
+.ride-route-main { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 7px; padding: 12px 14px; border: 0; background: none; text-align: left; border-radius: 12px; }
+.ride-route-top { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.ride-route-name { font-weight: 600; font-size: 16px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ride-tag { font-size: 12px; font-weight: 600; color: #0b1522; background: var(--gold); border-radius: 999px; padding: 1px 8px; white-space: nowrap; }
+.ride-route-time { margin-left: auto; font: 600 18px/1 var(--display); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ride-route-meta { color: var(--muted); font-size: 14px; }
+.ride-route-meta b { font-weight: 600; }
+.ride-route .remove { margin-right: 6px; }
+.ride-line { display: flex; height: 8px; border-radius: 4px; overflow: hidden; }
 .ride-line i { flex: 1; }
 .ride-line-ends { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.ride-verdict .ride-label { margin-top: 6px; }
-.ride-slots { display: flex; align-items: flex-end; gap: 3px; height: 54px; }
+
+.ride-slots { display: flex; align-items: flex-end; gap: 3px; height: 56px; }
 .ride-slots button { flex: 1; height: 100%; border: 0; padding: 0; background: var(--raise); border-radius: 4px; display: flex; align-items: flex-end; overflow: hidden; }
 .ride-slots button:hover { background: var(--raise-strong); }
 .ride-slots button[aria-pressed="true"] { outline: 2px solid var(--text); outline-offset: 1px; }
 .ride-slots i { display: block; width: 100%; border-radius: 4px 4px 0 0; }
+.ride-via .place-add input { padding-left: 12px; }
+
+.ride-legend {
+  position: absolute; left: 490px; bottom: 20px; z-index: 3; display: flex; gap: 14px; padding: 8px 14px; font-size: 13px;
+  background: rgba(10, 18, 30, 0.9); border: 1px solid var(--edge); border-radius: 999px;
+}
+.ride-legend li { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ride-legend i { width: 16px; height: 6px; border-radius: 3px; }
 .view-ride .maplibregl-ctrl-group { background: var(--glass-solid); }
 .view-ride .maplibregl-ctrl-group button + button { border-top-color: var(--edge); }
 .view-ride .maplibregl-ctrl-group button span { filter: invert(1); }
@@ -514,7 +540,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
 
   /* Wereldbol: bediening boven, plekken onder, de bol ertussen. */
   .globe-top { left: 10px; right: 10px; top: 10px; flex-direction: column-reverse; align-items: stretch; gap: 8px; }
-  .globe-left, .ride-left { width: auto; }
+  .globe-left { width: auto; }
   .globe-right { justify-content: space-between; }
   .globe-right .tabs { order: -1; }
   .globe-search .travel-line { font-size: 14px; }
@@ -528,17 +554,18 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
   .view-ride { overflow-y: auto; display: flex; flex-direction: column; }
   .view-ride .globe-top { display: contents; }
   .view-ride .globe-right { order: 0; padding: 10px; position: sticky; top: 0; z-index: 5; background: #0a121c; }
-  #ride-map { order: 1; position: relative; inset: auto; flex: none; height: 46vh; min-height: 280px; }
-  .ride-left { order: 2; max-height: none; overflow: visible; padding: 10px; display: flex; flex-direction: column; }
-  .ride-verdict { order: -1; }                 /* het advies eerst, de instellingen eronder */
-  .ride-form, .ride-verdict { background: var(--glass-solid); }
-  .ride-title { font-size: 28px; }
+  #ride-map { order: 1; position: relative; inset: auto; flex: none; height: 44vh; min-height: 270px; }
+  .ride-legend { order: 2; position: static; border-radius: 0; border-width: 0 0 1px; justify-content: space-between; gap: 6px; padding: 8px 10px; font-size: 12px; }
+  .ride-left { order: 3; width: auto; max-height: none; overflow: visible; border: 0; border-radius: 0; box-shadow: none; background: var(--night); display: flex; flex-direction: column; }
+  .ride-form, .ride-verdict, .ride-via { padding: 16px 14px; }
+  .ride-verdict { order: -1; border-top: 0; }                 /* het advies eerst, de instellingen eronder */
+  .ride-form { border-top: 1px solid var(--edge); }
+  .ride-title { font-size: 30px; }
   .chips button { min-height: 40px; padding: 6px 14px; }
   .ride-slots { height: 64px; gap: 2px; }
-  .ride-line { height: 18px; }
   .ride-traffic { min-height: 44px; }
   .ride-traffic input[type="number"] { width: 72px; }
-  #ride-time { width: 130px; }
+  #ride-time { width: 130px; margin-left: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

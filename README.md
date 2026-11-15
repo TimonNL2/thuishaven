@@ -20,11 +20,14 @@ of onweer zie je dat ook op je scherm.
 - **Vijf landschappen**: bergmeer, hooggebergte, heuvelland, woestijn en eilanden, te kiezen
   met de knop Achtergrond. Het weer en het licht kloppen in elk landschap.
 - **Rit**: rijd ik droog? Kies van waar naar waar je rijdt en op welke dag en tijd (handig
-  op de motor of fiets). Het dashboard zoekt de snelste route en een paar omwegen, kleurt
-  elke route per stuk weg naar de regen die er valt op het moment dat jij daar langskomt,
-  en raadt de droogste route en het droogste vertrekmoment aan. Binnen twee uur komt de
+  op de motor of fiets). Je krijgt de snelste route, de serieuze alternatieven over andere
+  snelwegen en je eigen vaste routes via een plaats die je zelf toevoegt. Elke route is per
+  stuk weg gekleurd naar de regen die er valt op het moment dat jij daar langskomt, en het
+  advies kiest de droogste route en het droogste vertrekmoment. Binnen twee uur komt de
   regen per vijf minuten van Buienradar, verder vooruit (tot drie dagen) van Open-Meteo.
-  Files worden niet gemeten; je kiest zelf tussen je normale en je drukke reistijd.
+  Vul bij Instellingen een gratis TomTom-sleutel in (developer.tomtom.com) en de routes,
+  de alternatieven en de reistijden komen van TomTom, met het verkeer van je vertrekmoment
+  erin, ook voor morgenochtend. Zonder sleutel kies je zelf je normale en drukke reistijd.
 - **Wereldbol** op een eigen scherm: satellietbeelden waarop je tot straatniveau inzoomt,
   een nachtstand met stadslichten, punten voor waar je bent geweest of nog heen wilt,
   bezochte landen die oplichten, de afstand tot huis en waar het ISS nu vliegt.
@@ -66,6 +69,6 @@ Een bepaalde lucht bekijken kan met `?lucht=sneeuw&uur=23` achter het adres (en 
 - Bibliotheken, kaartgrenzen en lettertypes worden één keer opgehaald en daarna vanaf
   je eigen server geserveerd. Je browser haalt zelf het weer op bij Open-Meteo, de
   satellietbeelden bij Esri en NASA, de positie van het ISS bij wheretheiss.at, en voor
-  een rit de route bij OSRM, de kaart bij OpenStreetMap en de radar bij RainViewer.
+  een rit de routes bij Valhalla (en het verkeer bij TomTom, als je een sleutel invult), de kaart bij OpenStreetMap en de radar bij RainViewer.
 - Verwijderen: `sudo systemctl disable --now thuishaven`, daarna
   `/etc/systemd/system/thuishaven.service` en `/opt/thuishaven` weghalen.

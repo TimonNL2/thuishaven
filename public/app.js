@@ -648,6 +648,20 @@ function initSettings() {
     setTimeout(loadNews, 500);
   });
 
+  // De TomTom-sleutel gaat naar de server en komt daarna niet meer terug naar de browser.
+  const keyState = (has) => { $('set-tomtom-state').textContent = has ? 'Er is een sleutel opgeslagen. Vul een nieuwe in om hem te vervangen, of een spatie om hem te wissen.' : 'Nog geen sleutel opgeslagen.'; };
+  getJSON('/api/keys').then((k) => keyState(k.tomtom)).catch(() => {});
+  $('set-tomtom').addEventListener('change', async (e) => {
+    if (!e.target.value) return;
+    try {
+      const res = await fetch('/api/keys', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tomtom: e.target.value }) });
+      if (!res.ok) throw new Error(String(res.status));
+      keyState((await res.json()).tomtom);
+      e.target.value = '';
+      emit('keys');
+    } catch (err) { toast('De sleutel kon niet worden opgeslagen.'); }
+  });
+
   $('set-import-btn').addEventListener('click', () => $('set-import').click());
   $('set-import').addEventListener('change', async (e) => {
     const file = e.target.files[0];

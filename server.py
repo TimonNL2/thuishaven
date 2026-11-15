@@ -35,6 +35,7 @@ VENDOR_DIR = DATA / "vendor"
 ICON_DIR = DATA / "icons"
 STATE_FILE = DATA / "state.json"
 PVE_FILE = DATA / "proxmox.json"
+KEYS_FILE = DATA / "keys.json"
 PORT = int(os.environ.get("PORT", "8080"))
 HOST = os.environ.get("HOST", "0.0.0.0")
 USER_AGENT = "home-dashboard/1.0 (self-hosted start page)"
@@ -86,7 +87,7 @@ DEFAULT_STATE = {
     ],
     "todos": [],
     "notes": "",
-    "ride": {"from": None, "to": None, "normal": 0, "busy": 80},
+    "ride": {"from": None, "to": None, "normal": 0, "busy": 80, "vias": []},
 }
 
 _state_lock = threading.Lock()
@@ -290,6 +291,211 @@ def rain_along(text):
         return []
     with ThreadPoolExecutor(max_workers=8) as pool:
         return list(pool.map(_rain_point, points))
+
+
+# ----------------------------------------------------------------- routes
+
+# Sleutels van diensten (nu alleen TomTom voor verkeer). Ze blijven op de server.
+
+def load_keys():
+    try:
+        data = json.loads(KEYS_FILE.read_text("utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_keys(update):
+    keys = load_keys()
+    for name in ("tomtom",):
+        if name in update:
+            value = str(update[name]).strip()[:200]
+            if value:
+                keys[name] = value
+            else:
+                keys.pop(name, None)
+    DATA.mkdir(parents=True, exist_ok=True)
+    tmp = KEYS_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(keys), "utf-8")
+    try:
+        os.chmod(str(tmp), 0o600)
+    except OSError:
+        pass
+    os.replace(str(tmp), str(KEYS_FILE))
+    with _cache_lock:
+        for key in [k for k in _cache if k.startswith("traffic:")]:
+            _cache.pop(key, None)
+
+
+def _decode_polyline6(text):
+    """Zet de compacte lijn van de routeplanner om in [[lengte, breedte], ...]."""
+    coords, index, lat, lon = [], 0, 0, 0
+    while index < len(text):
+        for is_lon in (False, True):
+            shift = result = 0
+            while True:
+                byte = ord(text[index]) - 63
+                index += 1
+                result |= (byte & 0x1F) << shift
+                shift += 5
+                if byte < 0x20:
+                    break
+            delta = ~(result >> 1) if result & 1 else result >> 1
+            if is_lon:
+                lon += delta
+            else:
+                lat += delta
+        coords.append([lon / 1e6, lat / 1e6])
+    return coords
+
+
+def _thin(coords, step=0.0004):
+    """Laat punten weg die vlak op elkaar liggen (ongeveer 40 meter); scheelt veel gegevens."""
+    kept = [coords[0]]
+    for point in coords[1:-1]:
+        if abs(point[0] - kept[-1][0]) + abs(point[1] - kept[-1][1]) >= step:
+            kept.append(point)
+    kept.append(coords[-1])
+    return kept
+
+
+def _road_names(maneuvers, total_km):
+    """De snelwegen en N-wegen waar de route vooral over loopt, in rijvolgorde: ['A20', 'A12']."""
+    length, order = {}, []
+    for man in maneuvers:
+        for name in man.get("street_names") or []:
+            name = name.replace(" ", "")
+            if re.match(r"^[AN]\d{1,3}$", name):
+                if name not in length:
+                    order.append(name)
+                length[name] = length.get(name, 0) + man.get("length", 0)
+                break
+    return [name for name in order if length[name] >= max(4, total_km * 0.07)][:4]
+
+
+def _trip(trip, custom=""):
+    coords, maneuvers = [], []
+    for leg in trip["legs"]:
+        coords.extend(_decode_polyline6(leg["shape"]))
+        maneuvers.extend(leg.get("maneuvers") or [])
+    km = trip["summary"]["length"]
+    return {"coords": _thin(coords), "km": round(km, 1), "minutes": round(trip["summary"]["time"] / 60.0, 1),
+            "roads": _road_names(maneuvers, km), "via": custom, "traffic": None, "delay": None}
+
+
+def _valhalla(locations, alternates):
+    body = {"locations": locations, "costing": "auto", "units": "kilometers", "alternates": alternates}
+    url = "https://valhalla1.openstreetmap.de/route?json=" + urllib.parse.quote(json.dumps(body, separators=(",", ":")))
+    return json.loads(http_get(url, timeout=25).decode("utf-8"))
+
+
+def plan_routes(start, end, vias):
+    """De snelste route, de alternatieven van de planner en je eigen routes via een tussenplaats."""
+    def produce():
+        a, b = {"lat": start[0], "lon": start[1]}, {"lat": end[0], "lon": end[1]}
+        data = _valhalla([a, b], 2)
+        routes = [_trip(data["trip"])]
+        for alt in data.get("alternates") or []:
+            route = _trip(alt["trip"])
+            if route["minutes"] <= routes[0]["minutes"] * 1.22:     # verder om is geen serieus alternatief
+                routes.append(route)
+        for name, lat, lon in vias:
+            # Het tussenpunt klikt vast op de dichtstbijzijnde snelweg, zodat de route erlangs loopt
+            # in plaats van het centrum in en uit te rijden.
+            through = {"lat": lat, "lon": lon, "type": "through", "radius": 4000, "search_cutoff": 25000,
+                       "search_filter": {"min_road_class": "motorway"}}
+            try:
+                routes.append(_trip(_valhalla([a, through, b], 0)["trip"], name))
+            except Exception:
+                try:
+                    plain = {"lat": lat, "lon": lon, "type": "through"}
+                    routes.append(_trip(_valhalla([a, plain, b], 0)["trip"], name))
+                except Exception:
+                    pass
+        return routes
+
+    key = "plan:%s:%s:%s" % (start, end, vias)
+    return _deep_copy(cached(key, 6 * 3600, produce))
+
+
+def _tomtom_roads(instructions, total_m):
+    """De snelwegen en N-wegen van een TomTom-route, in rijvolgorde."""
+    length, order = {}, []
+    for now, after in zip(instructions, instructions[1:] + [None]):
+        end = after["routeOffsetInMeters"] if after else total_m
+        for name in now.get("roadNumbers") or []:
+            if re.match(r"^[AN]\d{1,3}$", name):
+                if name not in length:
+                    order.append(name)
+                length[name] = length.get(name, 0) + max(0, end - now.get("routeOffsetInMeters", 0))
+                break
+    return [name for name in order if length[name] >= max(4000, total_m * 0.07)][:4]
+
+
+def _tomtom(key, locations, depart, alternatives):
+    """Routes van TomTom, met de reistijd in het verkeer van het vertrekmoment."""
+    url = ("https://api.tomtom.com/routing/1/calculateRoute/%s/json?traffic=true&computeTravelTimeFor=all&routeType=fastest"
+           "&travelMode=car&instructionsType=coded&maxAlternatives=%d&key=%s"
+           % (urllib.parse.quote(":".join(locations)), alternatives, urllib.parse.quote(key)))
+    if depart and depart - time.time() > 300:
+        url += "&departAt=" + urllib.parse.quote(time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(depart)))
+    data = json.loads(http_get(url, timeout=15).decode("utf-8"))
+    routes = []
+    for item in data.get("routes") or []:
+        summary = item["summary"]
+        coords = [[pt["longitude"], pt["latitude"]] for leg in item["legs"] for pt in leg["points"]]
+        seconds = summary["travelTimeInSeconds"]
+        routes.append({
+            "coords": _thin(coords), "km": round(summary["lengthInMeters"] / 1000.0, 1),
+            "minutes": round(summary.get("noTrafficTravelTimeInSeconds", seconds) / 60.0, 1),
+            # Vertraging: wat het verkeer kost ten opzichte van een lege weg (ook voor een vertrek later).
+            "traffic": round(seconds / 60.0, 1),
+            "delay": round(max(summary.get("trafficDelayInSeconds", 0), seconds - summary.get("noTrafficTravelTimeInSeconds", seconds)) / 60.0, 1),
+            "roads": _tomtom_roads((item.get("guidance") or {}).get("instructions") or [], summary["lengthInMeters"]), "via": "",
+        })
+    return routes
+
+
+def plan_with_traffic(key, start, end, vias, depart):
+    a, b = "%s,%s" % start, "%s,%s" % end
+    routes = _tomtom(key, [a, b], depart, 3)
+    fastest = min(r["traffic"] for r in routes)
+    routes = [r for r in routes if r["traffic"] <= fastest * 1.2]     # veel langzamer is geen serieus alternatief
+    for name, lat, lon in vias:
+        # Een cirkel in plaats van een punt: de route moet door de buurt, niet naar het centrum.
+        try:
+            extra = _tomtom(key, [a, "circle(%s,%s,4000)" % (lat, lon), b], depart, 0)[0]
+            extra["via"] = name
+            routes.append(extra)
+        except Exception:
+            pass
+    return routes
+
+
+def routes_with_traffic(start, end, vias, depart):
+    key = load_keys().get("tomtom")
+    if key:
+        bucket = int((depart or time.time()) // 300)
+        try:
+            routes = cached("traffic:%s:%s:%s:%d" % (start, end, vias, bucket), 240,
+                            lambda: plan_with_traffic(key, start, end, vias, depart))
+            return {"routes": _deep_copy(routes), "traffic": True, "trafficError": ""}
+        except urllib.error.HTTPError as exc:
+            error = "TomTom weigert de sleutel." if exc.code in (401, 403) else "TomTom gaf foutcode %d." % exc.code
+        except Exception:
+            error = "TomTom is niet bereikbaar."
+    else:
+        error = "geen sleutel"
+    # Zonder sleutel, of als TomTom hapert: de vrije planner, zonder verkeer.
+    return {"routes": plan_routes(start, end, vias), "traffic": False, "trafficError": error}
+
+
+def _pair(text):
+    lat, _, lon = text.partition(",")
+    lat, lon = round(float(lat), 5), round(float(lon), 5)
+    if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+        raise ValueError("buiten bereik")
+    return lat, lon
 
 
 # --------------------------------------------------------------- proxmox
@@ -644,6 +850,23 @@ class Handler(BaseHTTPRequestHandler):
                     "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox"})
             if path == "/api/news":
                 return self.send_json(news())
+            if path == "/api/keys":
+                return self.send_json({"tomtom": bool(load_keys().get("tomtom"))})
+            if path == "/api/routes":
+                try:
+                    start, end = _pair(query.get("from", [""])[0]), _pair(query.get("to", [""])[0])
+                    vias = []
+                    for part in [x for x in query.get("via", [""])[0].split(";") if x][:4]:
+                        where, _, name = part.partition("|")
+                        vias.append((name[:40],) + _pair(where))
+                    depart = float(query.get("depart", ["0"])[0] or 0)
+                except ValueError:
+                    return self.fail(400, "ongeldige plaatsen")
+                try:
+                    return self.send_json(routes_with_traffic(start, end, tuple(vias), depart))
+                except Exception as exc:
+                    sys.stderr.write("route mislukt: %r\n" % exc)
+                    return self.fail(502, "de routeplanner is niet bereikbaar")
             if path == "/api/rain":
                 try:
                     return self.send_json(rain_along(query.get("pts", [""])[0]))
@@ -684,6 +907,14 @@ class Handler(BaseHTTPRequestHandler):
             value = json.loads(self.rfile.read(length).decode("utf-8"))
         except ValueError:
             return self.fail(400, "ongeldige JSON")
+        if path == "/api/keys":
+            if not isinstance(value, dict):
+                return self.fail(400, "verwacht een object")
+            try:
+                save_keys(value)
+            except OSError:
+                return self.fail(500, "opslaan mislukt")
+            return self.send_json({"tomtom": bool(load_keys().get("tomtom"))})
         if path == "/api/proxmox":
             if not isinstance(value, list):
                 return self.fail(400, "verwacht een lijst")
