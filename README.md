@@ -12,8 +12,12 @@ of onweer zie je dat ook op je scherm.
 - **Snelkoppelingen** als tegels met het icoon van de site. Vink "status" aan bij
   diensten op je eigen netwerk en je ziet of ze bereikbaar zijn en hoe snel.
 - **Serverbalk**: processor, geheugen, schijf, temperatuur en hoe lang de server aan staat.
-- **Weer** (per uur en per dag), **te doen**, **aftellen** naar datums, een **kladblok**,
-  **nieuws** uit je eigen RSS-bronnen en **vandaag in de geschiedenis**.
+- **Proxmox**: per server de processor, het geheugen, de schijf en welke VM's en
+  containers draaien. Voeg je servers toe bij Instellingen met een API-token dat alleen
+  mag kijken (rol PVEAuditor). Het geheim blijft op de server en komt niet in de browser.
+- **Weer** (per uur en per dag), **te doen**, een **kladblok** en **nieuws** uit je
+  eigen RSS-bronnen.
+- **Twee achtergronden**: getekend of realistisch, te wisselen met de knop rechtsboven.
 - **Wereldbol** op een eigen scherm: satellietbeelden waarop je tot straatniveau inzoomt,
   een nachtstand met stadslichten, punten voor waar je bent geweest of nog heen wilt,
   bezochte landen die oplichten, de afstand tot huis en waar het ISS nu vliegt.
@@ -45,7 +49,7 @@ Er is niets te installeren behalve Python 3.8 of nieuwer:
 python3 server.py
 ```
 
-Een bepaalde lucht bekijken kan met `?lucht=sneeuw&uur=23` achter het adres
+Een bepaalde lucht bekijken kan met `?lucht=sneeuw&uur=23` achter het adres (en `&stijl=echt` voor de realistische variant)
 (helder, halfbewolkt, bewolkt, motregen, regen, sneeuw, mist of onweer).
 
 ## Goed om te weten

@@ -228,57 +228,6 @@ async function loadWeather() {
   );
 }
 
-// -------------------------------------------------------------- aftellen
-
-function daysUntil(dateText) {
-  const [y, m, d] = dateText.split('-').map(Number);
-  const now = new Date();
-  return Math.round((new Date(y, m - 1, d) - new Date(now.getFullYear(), now.getMonth(), now.getDate())) / 864e5);
-}
-
-function renderCountdowns() {
-  const list = $('countdown-list');
-  const items = store.state.countdowns.slice().sort((a, b) => a.date.localeCompare(b.date));
-  const upcoming = items.filter((c) => daysUntil(c.date) >= 0);
-  const past = items.filter((c) => daysUntil(c.date) < 0).reverse();
-  list.replaceChildren();
-  if (!items.length) {
-    list.append(h('li', { class: 'empty', text: 'Tel af naar je vakantie, een verjaardag of een deadline.' }));
-    return;
-  }
-  for (const item of [...upcoming, ...past]) {
-    const days = daysUntil(item.date);
-    const when = days === 0 ? 'vandaag' : days === 1 ? 'morgen' : days > 1 ? 'dagen' : days === -1 ? 'gisteren' : Math.abs(days) + ' dagen geleden';
-    const date = new Date(item.date + 'T12:00').toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', year: 'numeric' });
-    list.append(h('li', { title: date },
-      h('span', { class: 'grow', text: item.name }),
-      days > 1 ? h('span', { class: 'cd-days', text: String(days) }) : null,
-      h('span', { class: 'cd-when' + (days >= 0 && days <= 1 ? ' soon' : ''), text: when }),
-      h('button', { type: 'button', class: 'remove', 'aria-label': 'Verwijder ' + item.name, text: '×', onclick: () => {
-        store.state.countdowns = store.state.countdowns.filter((c) => c.id !== item.id);
-        save('countdowns'); renderCountdowns();
-      } })));
-  }
-}
-
-function initCountdowns() {
-  const form = $('countdown-form');
-  $('countdown-add').addEventListener('click', () => {
-    form.hidden = !form.hidden;
-    if (!form.hidden) $('countdown-name').focus();
-  });
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = $('countdown-name').value.trim(), date = $('countdown-date').value;
-    if (!name || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-    store.state.countdowns.push({ id: uid(), name, date });
-    save('countdowns');
-    form.reset(); form.hidden = true;
-    renderCountdowns();
-  });
-  renderCountdowns();
-}
-
 // ---------------------------------------------------------------- server
 
 const gb = (bytes) => {
@@ -509,29 +458,116 @@ async function loadNews() {
   $('news-meta').textContent = failed.length ? 'Niet bereikbaar: ' + failed.join(', ') : '';
 }
 
-// ---------------------------------------------------------- op deze dag
+// --------------------------------------------------------------- proxmox
 
-async function initOnThisDay() {
-  const body = $('otd-body'), next = $('otd-next');
-  const now = new Date();
-  let events = [];
-  try { events = (await getJSON('/api/onthisday?m=' + (now.getMonth() + 1) + '&d=' + now.getDate(), 20000)).events; } catch (err) { /* hieronder afgehandeld */ }
-  if (!events.length) {
-    body.replaceChildren(h('p', { class: 'quiet', text: 'Wikipedia is nu niet bereikbaar.' }));
-    return;
+let pveConfig = [];
+
+function pveBar(labelText, valueText, fraction) {
+  const pct = Math.max(0, Math.min(100, (fraction || 0) * 100));
+  return h('div', { class: 'pve-bar' },
+    h('span', { text: labelText }), h('b', { text: valueText }),
+    h('i', {}, h('u', { class: pct >= 90 ? 'high' : '', style: 'width:' + pct + '%' })));
+}
+
+function pveNode(server, node, single) {
+  const title = single && server.name ? server.name : node.node;
+  const card = h('article', { class: 'card pve-node' + (node.online ? '' : ' offline') },
+    h('div', { class: 'pve-head' },
+      h('span', { class: 'dot ' + (node.online ? 'up' : 'down') }),
+      h('h3', { text: title }),
+      h('span', { class: 'card-meta', text: node.online ? (node.uptime ? uptimeText(node.uptime) + ' aan' : '') : 'offline' })));
+  if (!node.online) return card;
+  card.append(
+    pveBar('Processor', Math.round((node.cpu || 0) * 100) + '%' + (node.cores ? ' van ' + node.cores + ' kernen' : ''), node.cpu),
+    pveBar('Geheugen', gb(node.mem || 0) + ' van ' + gb(node.maxmem || 0), node.maxmem ? node.mem / node.maxmem : 0),
+    pveBar('Schijf', gb(node.disk || 0) + ' van ' + gb(node.maxdisk || 0), node.maxdisk ? node.disk / node.maxdisk : 0));
+  const count = (pair, one, many) => pair[1] ? pair[0] + ' van ' + pair[1] + ' ' + (pair[1] === 1 ? one : many) + ' aan' : '';
+  const summary = [count(node.vm, 'VM', "VM's"), count(node.lxc, 'container', 'containers')].filter(Boolean).join(', ');
+  if (node.guests.length) {
+    const list = h('ul', { class: 'pve-guests' }, node.guests.map((g) => h('li', { class: g.running ? '' : 'off' },
+      h('span', { class: 'dot ' + (g.running ? 'up' : '') }),
+      h('span', { class: 'grow', text: g.name }),
+      h('span', { class: 'kind', text: g.kind === 'vm' ? 'VM' : 'container' }),
+      h('span', { class: 'use', text: g.running ? Math.round((g.cpu || 0) * 100) + '%, ' + gb(g.mem || 0) : 'uit' }))));
+    card.append(h('details', { class: 'pve-details' }, h('summary', { text: summary || 'Geen VM\'s of containers' }), list));
+  } else {
+    card.append(h('p', { class: 'quiet', text: 'Geen VM\'s of containers op deze server.' }));
   }
-  let pool = [];
-  const show = () => {
-    if (!pool.length) pool = events.slice().sort(() => Math.random() - 0.5);
-    const ev = pool.pop();
-    body.replaceChildren(
-      h('p', { class: 'otd-year', text: String(ev.year) }),
-      h('p', { class: 'otd-text', text: ev.text }),
-      ev.url ? h('a', { class: 'otd-more', href: ev.url, rel: 'noreferrer', text: 'Lees verder op Wikipedia' }) : null);
+  return card;
+}
+
+async function loadProxmox() {
+  if (!pveConfig.length || document.hidden || document.body.dataset.view === 'globe') return;
+  const body = $('pve-body');
+  let servers;
+  try { servers = await getJSON('/api/proxmox/stats', 15000); } catch (err) { return; }
+  // Onthouden welke lijstjes openstaan, zodat ze bij het verversen niet dichtklappen.
+  const open = new Set([...body.querySelectorAll('details[open]')].map((el) => el.closest('.pve-node').dataset.key));
+  const cards = [];
+  for (const server of servers) {
+    if (server.error) {
+      cards.push(h('article', { class: 'card pve-node offline' },
+        h('div', { class: 'pve-head' }, h('span', { class: 'dot down' }), h('h3', { text: server.name })),
+        h('p', { class: 'quiet', text: server.error })));
+      continue;
+    }
+    for (const node of server.nodes) {
+      const card = pveNode(server, node, server.nodes.length === 1);
+      card.dataset.key = server.id + '/' + node.node;
+      const details = card.querySelector('details');
+      if (details && open.has(card.dataset.key)) details.open = true;
+      cards.push(card);
+    }
+  }
+  body.replaceChildren(...cards);
+}
+
+async function initProxmox() {
+  const dialog = $('pve-dialog'), editor = $('pve-editor');
+  let draft = [];
+  const show = () => { $('pve-section').hidden = !pveConfig.length; };
+  const draw = () => {
+    editor.replaceChildren(...draft.map((server, i) => h('div', { class: 'edit-group' },
+      h('div', { class: 'edit-group-head' },
+        h('input', { type: 'text', value: server.name, placeholder: 'Naam, bijvoorbeeld pve1', 'aria-label': 'Naam', maxlength: 60, oninput: (e) => { server.name = e.target.value; } }),
+        h('button', { type: 'button', class: 'remove', text: '×', 'aria-label': 'Verwijder deze server', onclick: () => { draft.splice(i, 1); draw(); } })),
+      h('input', { type: 'text', value: server.url, placeholder: 'Adres, bijvoorbeeld https://192.168.1.10:8006', 'aria-label': 'Adres', spellcheck: 'false', oninput: (e) => { server.url = e.target.value; } }),
+      h('input', { type: 'text', value: server.tokenId, placeholder: 'Token-ID, bijvoorbeeld root@pam!dashboard', 'aria-label': 'Token-ID', spellcheck: 'false', autocomplete: 'off', oninput: (e) => { server.tokenId = e.target.value; } }),
+      h('input', { type: 'password', value: '', placeholder: server.hasSecret ? 'Geheim is opgeslagen. Laat leeg om het te houden.' : 'Geheim van het token', 'aria-label': 'Geheim van het token', autocomplete: 'new-password', oninput: (e) => { server.secret = e.target.value; } }))));
+    if (!draft.length) editor.append(h('p', { class: 'quiet', text: 'Nog geen servers. Kies Server toevoegen.' }));
   };
-  next.hidden = events.length < 2;
-  next.addEventListener('click', show);
+  const openDialog = () => {
+    if ($('settings').open) $('settings').close();
+    draft = JSON.parse(JSON.stringify(pveConfig));
+    if (!draft.length) draft.push({ id: '', name: '', url: '', tokenId: '', hasSecret: false });
+    draw();
+    dialog.showModal();
+  };
+  $('set-pve').addEventListener('click', openDialog);
+  $('pve-edit').addEventListener('click', openDialog);
+  $('pve-add').addEventListener('click', () => { draft.push({ id: '', name: '', url: '', tokenId: '', hasSecret: false }); draw(); });
+  $('pve-cancel').addEventListener('click', () => dialog.close());
+  $('pve-form').addEventListener('submit', async () => {
+    const items = draft.filter((d) => d.url.trim()).map((d) => {
+      let url = d.url.trim();
+      if (!isWebUrl(url)) url = 'https://' + url;
+      return { id: d.id || uid(), name: d.name.trim(), url, tokenId: (d.tokenId || '').trim(), secret: d.secret || '' };
+    });
+    try {
+      const res = await fetch('/api/proxmox', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(items) });
+      if (!res.ok) throw new Error(String(res.status));
+      pveConfig = await res.json();
+      show();
+      $('pve-body').replaceChildren(h('p', { class: 'card quiet', text: 'Gegevens ophalen…' }));
+      loadProxmox();
+    } catch (err) {
+      toast('De Proxmox-servers konden niet worden opgeslagen.');
+    }
+  });
+  try { pveConfig = await getJSON('/api/proxmox'); } catch (err) { pveConfig = []; }
   show();
+  loadProxmox();
+  setInterval(loadProxmox, 10000);
 }
 
 // ----------------------------------------------- schermen en instellingen
@@ -550,7 +586,11 @@ function initSettings() {
   const s = settings();
   const changed = () => { save('settings'); emit('settings'); };
 
+  const sceneLabel = () => { $('btn-scene').textContent = 'Achtergrond: ' + (s.scene === 'real' ? 'realistisch' : 'getekend'); };
+  sceneLabel();
+  $('btn-scene').addEventListener('click', () => { s.scene = s.scene === 'real' ? 'simple' : 'real'; sceneLabel(); changed(); });
   $('btn-settings').addEventListener('click', () => dialog.showModal());
+  $('now-change').addEventListener('click', () => { dialog.showModal(); $('set-home-q').focus(); });
 
   $('set-name').value = s.name || '';
   $('set-name').addEventListener('input', (e) => { s.name = e.target.value; tickClock(); save('settings'); });
@@ -617,7 +657,6 @@ async function start() {
   initScene();
   initSearch();
   initSettings();
-  initCountdowns();
   renderLinks();
   initLinkEditor();
   initTodos();
@@ -628,12 +667,11 @@ async function start() {
   loadServer(); setInterval(loadServer, 5000);
   loadStatus(); setInterval(loadStatus, 30000);
   loadNews(); setInterval(loadNews, 10 * 60 * 1000);
-  initOnThisDay();
-  setInterval(renderCountdowns, 60 * 60 * 1000);
+  initProxmox();
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) { loadServer(); loadStatus(); renderCountdowns(); }
+    if (!document.hidden) { loadServer(); loadStatus(); loadProxmox(); }
   });
-  on('view', (view) => { if (view === 'home') loadServer(); });
+  on('view', (view) => { if (view === 'home') { loadServer(); loadProxmox(); } });
 }
 
 start();

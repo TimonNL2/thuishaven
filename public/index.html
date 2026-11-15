@@ -23,6 +23,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-3.5 3.6-3.5 14.4 0 18M12 3c3.5 3.6 3.5 14.4 0 18"/></svg>
         Wereldbol
       </a>
+      <button type="button" class="pill" id="btn-scene" title="Wissel tussen de getekende en de realistische achtergrond">Achtergrond: getekend</button>
       <button type="button" class="pill" id="btn-settings">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
         Instellingen
@@ -43,6 +44,7 @@
       </div>
       <p class="now-desc" id="now-desc"></p>
       <p class="now-rain" id="now-rain"></p>
+      <button type="button" class="link-btn" id="now-change">Andere plaats kiezen</button>
     </div>
   </section>
 
@@ -60,6 +62,14 @@
         <button type="button" class="link-btn" id="links-edit">Bewerken</button>
       </div>
       <div id="links-body"></div>
+    </section>
+
+    <section id="pve-section" aria-labelledby="pve-title" hidden>
+      <div class="section-head">
+        <h2 id="pve-title">Proxmox</h2>
+        <button type="button" class="link-btn" id="pve-edit">Servers beheren</button>
+      </div>
+      <div id="pve-body" class="pve"></div>
     </section>
 
     <div class="widgets">
@@ -84,21 +94,6 @@
         <ul id="todo-list" class="rows"></ul>
       </section>
 
-      <section class="card w-countdown" aria-labelledby="countdown-title">
-        <div class="card-head">
-          <h2 id="countdown-title">Aftellen</h2>
-          <button type="button" class="link-btn" id="countdown-add">Datum toevoegen</button>
-        </div>
-        <form id="countdown-form" class="inline-form stack" hidden>
-          <label class="sr" for="countdown-name">Waar tel je naar af?</label>
-          <input id="countdown-name" type="text" placeholder="Bijvoorbeeld: vakantie" required maxlength="60">
-          <label class="sr" for="countdown-date">Datum</label>
-          <input id="countdown-date" type="date" required>
-          <button class="btn" type="submit">Voeg toe</button>
-        </form>
-        <ul id="countdown-list" class="rows"></ul>
-      </section>
-
       <section class="card w-notes" aria-labelledby="notes-title">
         <div class="card-head">
           <h2 id="notes-title">Kladblok</h2>
@@ -116,13 +111,6 @@
         <ul id="news-list" class="news"><li class="quiet">Koppen ophalen…</li></ul>
       </section>
 
-      <section class="card w-otd" aria-labelledby="otd-title">
-        <div class="card-head">
-          <h2 id="otd-title">Vandaag in de geschiedenis</h2>
-          <button type="button" class="link-btn" id="otd-next" hidden>Nog een</button>
-        </div>
-        <div id="otd-body"><p class="quiet">Even bladeren…</p></div>
-      </section>
     </div>
   </main>
 </div>
@@ -218,6 +206,12 @@
       <label class="check"><input type="checkbox" id="set-iss"> Toon waar het ruimtestation ISS vliegt</label>
     </fieldset>
 
+    <div class="field">
+      <span class="field-label">Proxmox</span>
+      <div class="button-row"><button type="button" class="ghost" id="set-pve">Proxmox-servers beheren</button></div>
+      <p class="hint">Toont per server de processor, het geheugen en welke VM's en containers draaien.</p>
+    </div>
+
     <label class="field">
       <span class="field-label">Nieuwsbronnen</span>
       <textarea id="set-feeds" rows="3" spellcheck="false"></textarea>
@@ -250,6 +244,20 @@
       <span class="spacer"></span>
       <button type="button" class="ghost" id="links-cancel">Annuleer</button>
       <button type="submit" class="btn" id="links-save">Bewaar snelkoppelingen</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="pve-dialog" class="dialog dialog-wide" aria-labelledby="pve-dialog-title">
+  <form method="dialog" class="dialog-body" id="pve-form">
+    <h2 id="pve-dialog-title">Proxmox-servers</h2>
+    <p class="hint">Maak in Proxmox een API-token aan: Datacenter, Permissions, API Tokens, Add. Zet "Privilege Separation" uit of geef het token zelf de rol PVEAuditor op pad /. Die rol mag alleen kijken, niets veranderen. Het geheim blijft op je server staan en komt nooit in de browser of in een backup terecht. Voor een cluster is één server genoeg.</p>
+    <div id="pve-editor"></div>
+    <div class="dialog-actions">
+      <button type="button" class="ghost" id="pve-add">Server toevoegen</button>
+      <span class="spacer"></span>
+      <button type="button" class="ghost" id="pve-cancel">Annuleer</button>
+      <button type="submit" class="btn">Bewaar servers</button>
     </div>
   </form>
 </dialog>

@@ -3,6 +3,7 @@
 // staat, de wolken drijven met de wind mee, en bij regen, sneeuw, mist of onweer
 // zie je dat ook hier.
 import { store, on, $, subsolarPoint } from './core.js';
+import * as painter from './scene-real.js';
 
 const RAD = Math.PI / 180;
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -29,6 +30,8 @@ let clouds = [], sprites = [], drops = [], twinkles = [];
 let starLayer = null, landLayer = null;
 let lastFrame = 0, lastBuild = 0, flash = 0, nextFlash = 0, meteor = null, nextMeteor = 0;
 let running = false;
+let realistic = false;    // getekend of realistisch; te kiezen bij Instellingen of met ?stijl=echt
+let env = null;           // wat de realistische tekenaar nodig heeft
 
 // ------------------------------------------------------------ hulpjes
 
@@ -472,15 +475,32 @@ function drawDrops(dt, t) {
   ctx.globalAlpha = 1;
 }
 
+function sunOnScreen(horizon) {
+  const lift = sun.alt > 0 ? Math.pow(clamp(sun.alt / 62), 0.6) : sun.alt / 62;
+  return { x: clamp((sun.az - 90) / 180, 0.06, 0.94), y: horizon - lift * horizon * 0.9 };
+}
+
 function frame(t) {
   const dt = reducedMotion.matches || !lastFrame ? 0 : Math.min(0.1, (t - lastFrame) / 1000);
   lastFrame = t;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const horizon = drawSky();
-  drawStars(t, dt);
-  drawSunAndMoon(horizon);
-  drawClouds(dt, horizon);
-  ctx.drawImage(landLayer, 0, 0, W, H);
+  if (realistic) {
+    env.push = windPush() * (6 + look.wind * 0.9);
+    env.still = reducedMotion.matches;
+    drawStars(t, dt);
+    painter.drawSkyExtras(ctx, env);
+    drawSunAndMoon(horizon);
+    painter.drawClouds(ctx, env, dt);
+    painter.drawLand(ctx, env);
+    painter.drawWater(ctx, canvas, env, t);
+    painter.drawFore(ctx, env);
+  } else {
+    drawStars(t, dt);
+    drawSunAndMoon(horizon);
+    drawClouds(dt, horizon);
+    ctx.drawImage(landLayer, 0, 0, W, H);
+  }
 
   if (look.kind === 'fog') {
     const g = ctx.createLinearGradient(0, H * 0.3, 0, H);
@@ -501,15 +521,28 @@ function frame(t) {
 
 // ---------------------------------------------------------------- regie
 
+function buildLayers() {
+  const style = params.get('stijl');
+  realistic = style ? style === 'echt' : store.state.settings.scene === 'real';
+  buildDrops();
+  if (realistic) {
+    const horizon = H * 0.8, at = sunOnScreen(horizon);
+    const veil = look.kind === 'fog' ? 0 : 1 - clamp((look.cloud - 0.6) * 2.5) * (pal.dull > 0.5 ? 1 : 0.6);
+    env = { W, H, dpr, pal, look, sunX: at.x, sunY: at.y, sunUp: sun.alt > -3, veil };
+    painter.build(env);
+  } else {
+    buildClouds();
+    buildLand();
+  }
+}
+
 function rebuild() {
   const choice = params.get('lucht') || store.state.settings.sky || 'auto';
   look = Object.assign({ wind: real.wind, windDir: real.windDir }, PRESETS[choice] || real);
   const home = store.state.settings.home || { lat: 52.37, lon: 4.89 };
   sun = sunPosition(now(), home.lat, home.lon);
   buildPalette();
-  buildClouds();
-  buildDrops();
-  buildLand();
+  buildLayers();
   lastBuild = performance.now();
   if (!running && ctx) frame(lastBuild);
 }
@@ -519,7 +552,7 @@ function resize() {
   W = Math.max(320, window.innerWidth); H = Math.max(320, window.innerHeight);
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
   buildStars();
-  if (look) { buildClouds(); buildDrops(); buildLand(); frame(performance.now()); }
+  if (look) { buildLayers(); frame(performance.now()); }
 }
 
 function loop(t) {

@@ -34,6 +34,7 @@ DATA = Path(os.environ.get("DASHBOARD_DATA", str(ROOT / "data"))).resolve()
 VENDOR_DIR = DATA / "vendor"
 ICON_DIR = DATA / "icons"
 STATE_FILE = DATA / "state.json"
+PVE_FILE = DATA / "proxmox.json"
 PORT = int(os.environ.get("PORT", "8080"))
 HOST = os.environ.get("HOST", "0.0.0.0")
 USER_AGENT = "home-dashboard/1.0 (self-hosted start page)"
@@ -59,6 +60,7 @@ DEFAULT_STATE = {
         "home": {"name": "Amsterdam", "country": "Nederland", "lat": 52.374, "lon": 4.89},
         "engine": "duckduckgo",
         "sky": "auto",
+        "scene": "simple",
         "feeds": [
             "https://feeds.nos.nl/nosnieuwsalgemeen",
             "https://tweakers.net/feeds/mixed.xml",
@@ -84,7 +86,6 @@ DEFAULT_STATE = {
     ],
     "todos": [],
     "notes": "",
-    "countdowns": [],
 }
 
 _state_lock = threading.Lock()
@@ -162,10 +163,12 @@ def is_web_url(url):
     return parts.scheme in ("http", "https") and bool(parts.netloc)
 
 
-def http_get(url, timeout=8, verify=True, limit=8 * 1024 * 1024):
+def http_get(url, timeout=8, verify=True, limit=8 * 1024 * 1024, headers=None):
     if not is_web_url(url):
         raise ValueError("alleen http(s)-adressen zijn toegestaan")
-    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Accept": "*/*"})
+    send = {"User-Agent": USER_AGENT, "Accept": "*/*"}
+    send.update(headers or {})
+    req = urllib.request.Request(url, headers=send)
     ctx = None if verify else _insecure
     with urllib.request.urlopen(req, timeout=timeout, context=ctx) as res:
         return res.read(limit)
@@ -254,72 +257,110 @@ def news():
     return cached("news:" + "|".join(feeds), 600, produce)
 
 
-# ------------------------------------------------------------ op deze dag
+# --------------------------------------------------------------- proxmox
 
-MONTHS = ["januari", "februari", "maart", "april", "mei", "juni", "juli",
-          "augustus", "september", "oktober", "november", "december"]
+# De API-tokens staan in een eigen bestand en gaan nooit naar de browser of in een backup.
+_pve_lock = threading.Lock()
 
 
-def _dutch_events(month, day):
-    """Haalt de gebeurtenissen uit de Nederlandse Wikipedia-pagina van deze dag."""
-    title = "%d_%s" % (day, MONTHS[month - 1])
-    url = ("https://nl.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1"
-           "&redirects=1&format=json&titles=" + title)
-    data = json.loads(http_get(url, timeout=8).decode("utf-8"))
-    text = next(iter(data["query"]["pages"].values())).get("extract", "")
-    start = text.find("== Gebeurtenissen ==")
-    if start < 0:
+def load_proxmox():
+    try:
+        data = json.loads(PVE_FILE.read_text("utf-8"))
+        return [x for x in data if isinstance(x, dict)] if isinstance(data, list) else []
+    except (OSError, ValueError):
         return []
-    section = text[start + 20:]
-    end = section.find("\n== ")
-    if end >= 0:
-        section = section[:end]
-    page = "https://nl.wikipedia.org/wiki/" + title
-    events = []
-    for line in section.splitlines():
-        year, sep, rest = line.strip().partition(" - ")
-        if not sep:
-            year, sep, rest = line.strip().partition(" – ")
-        rest = rest.strip()
-        if sep and year.isdigit() and 20 <= len(rest) <= 260:
-            events.append({"year": int(year), "text": rest, "url": page})
-    return events
 
 
-def on_this_day(month, day):
-    def produce():
-        try:
-            events = _dutch_events(month, day)
-            if events:
-                return {"lang": "nl", "events": events}
-        except Exception:
-            pass
-        for lang in ("en",):
-            url = "https://api.wikimedia.org/feed/v1/wikipedia/%s/onthisday/events/%02d/%02d" % (lang, month, day)
-            try:
-                data = json.loads(http_get(url, timeout=8).decode("utf-8"))
-            except Exception:
+def proxmox_public():
+    return [{"id": x.get("id", ""), "name": x.get("name", ""), "url": x.get("url", ""),
+             "tokenId": x.get("tokenId", ""), "hasSecret": bool(x.get("secret"))} for x in load_proxmox()]
+
+
+def save_proxmox(items):
+    """Slaat de lijst op. Een leeg geheim betekent: het bestaande geheim behouden."""
+    with _pve_lock:
+        old = {x.get("id"): x for x in load_proxmox()}
+        clean = []
+        for item in items[:12]:
+            if not isinstance(item, dict):
                 continue
-            events = []
-            for ev in data.get("events", []):
-                text = (ev.get("text") or "").strip()
-                if not text or not isinstance(ev.get("year"), int):
-                    continue
-                link = ""
-                for page in ev.get("pages") or []:
-                    link = ((page.get("content_urls") or {}).get("desktop") or {}).get("page", "")
-                    if link:
-                        break
-                events.append({"year": ev["year"], "text": text[:400], "url": link if is_web_url(link) else ""})
-            if events:
-                return {"lang": lang, "events": events}
-        return {"lang": "", "events": []}
+            url = str(item.get("url", "")).strip().rstrip("/")
+            if not is_web_url(url):
+                continue
+            ident = str(item.get("id", ""))[:40] or hashlib.sha1(url.encode("utf-8")).hexdigest()[:12]
+            secret = str(item.get("secret", "")).strip() or old.get(ident, {}).get("secret", "")
+            clean.append({"id": ident, "name": str(item.get("name", "")).strip()[:60], "url": url,
+                          "tokenId": str(item.get("tokenId", "")).strip()[:120], "secret": secret[:200]})
+        DATA.mkdir(parents=True, exist_ok=True)
+        tmp = PVE_FILE.with_suffix(".tmp")
+        tmp.write_text(json.dumps(clean, indent=1), "utf-8")
+        try:
+            os.chmod(str(tmp), 0o600)
+        except OSError:
+            pass
+        os.replace(str(tmp), str(PVE_FILE))
+    with _cache_lock:
+        _cache.pop("proxmox", None)
 
-    result = cached("otd:%d-%d" % (month, day), 6 * 3600, produce)
-    if not result["events"]:
-        with _cache_lock:  # een mislukte poging niet zes uur onthouden
-            _cache.pop("otd:%d-%d" % (month, day), None)
+
+def _proxmox_one(server):
+    result = {"id": server.get("id"), "name": server.get("name") or server.get("url"), "nodes": [], "error": ""}
+    if not server.get("tokenId") or not server.get("secret"):
+        result["error"] = "Nog geen API-token ingevuld."
+        return result
+    auth = {"Authorization": "PVEAPIToken=%s=%s" % (server["tokenId"], server["secret"])}
+    try:
+        raw = http_get(server["url"] + "/api2/json/cluster/resources", timeout=6, verify=False, headers=auth)
+        rows = json.loads(raw.decode("utf-8")).get("data") or []
+    except urllib.error.HTTPError as exc:
+        result["error"] = ("Proxmox weigert het token. Klopt het token-ID en het geheim, en heeft het de rol PVEAuditor?"
+                           if exc.code in (401, 403) else "Proxmox gaf foutcode %d." % exc.code)
+        return result
+    except Exception:
+        result["error"] = "Niet bereikbaar. Klopt het adres (meestal https://ip-adres:8006)?"
+        return result
+    nodes = {}
+    for row in rows:
+        if row.get("type") == "node":
+            nodes[row.get("node")] = {
+                "node": row.get("node"), "online": row.get("status") == "online",
+                "cpu": row.get("cpu"), "cores": row.get("maxcpu"),
+                "mem": row.get("mem"), "maxmem": row.get("maxmem"),
+                "disk": row.get("disk"), "maxdisk": row.get("maxdisk"),
+                "uptime": row.get("uptime"), "vm": [0, 0], "lxc": [0, 0], "guests": [],
+            }
+    for row in rows:
+        kind = {"qemu": "vm", "lxc": "lxc"}.get(row.get("type"))
+        node = nodes.get(row.get("node"))
+        if not kind or not node or row.get("template"):
+            continue
+        running = row.get("status") == "running"
+        node[kind][1] += 1
+        node[kind][0] += 1 if running else 0
+        node["guests"].append({
+            "name": str(row.get("name") or row.get("vmid")), "kind": kind, "running": running,
+            "cpu": row.get("cpu") if running else None,
+            "mem": row.get("mem") if running else None, "maxmem": row.get("maxmem"),
+        })
+    for node in nodes.values():
+        node["guests"].sort(key=lambda g: (not g["running"], g["name"].lower()))
+        node["guests"] = node["guests"][:40]
+    result["nodes"] = sorted(nodes.values(), key=lambda n: str(n["node"]))
+    if not result["nodes"]:
+        result["error"] = "Het token mag niets zien. Geef het de rol PVEAuditor op pad /."
     return result
+
+
+def proxmox_stats():
+    servers = load_proxmox()
+
+    def produce():
+        if not servers:
+            return []
+        with ThreadPoolExecutor(max_workers=len(servers)) as pool:
+            return list(pool.map(_proxmox_one, servers))
+
+    return cached("proxmox", 8, produce)
 
 
 # ---------------------------------------------------------------- iconen
@@ -568,11 +609,10 @@ class Handler(BaseHTTPRequestHandler):
                     "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox"})
             if path == "/api/news":
                 return self.send_json(news())
-            if path == "/api/onthisday":
-                month, day = int(query.get("m", ["0"])[0]), int(query.get("d", ["0"])[0])
-                if not (1 <= month <= 12 and 1 <= day <= 31):
-                    return self.fail(400, "ongeldige datum")
-                return self.send_json(on_this_day(month, day))
+            if path == "/api/proxmox":
+                return self.send_json(proxmox_public())
+            if path == "/api/proxmox/stats":
+                return self.send_json(proxmox_stats())
             if path.startswith("/api/"):
                 return self.fail(404, "onbekend")
             if path.startswith("/vendor/"):
@@ -604,6 +644,15 @@ class Handler(BaseHTTPRequestHandler):
             value = json.loads(self.rfile.read(length).decode("utf-8"))
         except ValueError:
             return self.fail(400, "ongeldige JSON")
+        if path == "/api/proxmox":
+            if not isinstance(value, list):
+                return self.fail(400, "verwacht een lijst")
+            try:
+                save_proxmox(value)
+            except OSError as exc:
+                sys.stderr.write("opslaan mislukt: %r\n" % exc)
+                return self.fail(500, "opslaan mislukt")
+            return self.send_json(proxmox_public())
         try:
             with _state_lock:
                 state = load_state()

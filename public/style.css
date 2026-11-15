@@ -208,12 +208,33 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
 .edit-link { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr) auto auto; gap: 8px; align-items: center; }
 .edit-link .check { font-size: 13px; color: var(--muted); }
 
+/* --------------------------------------------------------------- proxmox */
+
+#pve-section { margin-top: 8px; }
+.pve { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 12px; margin-top: 10px; align-items: start; }
+.pve-node { padding: 16px 18px; }
+.pve-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.pve-head h3 { font: 600 19px/1.2 var(--display); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pve-bar { display: grid; grid-template-columns: 1fr auto; column-gap: 10px; margin-bottom: 10px; }
+.pve-bar span { color: var(--muted); }
+.pve-bar b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.pve-bar i { grid-column: 1 / -1; display: block; height: 6px; border-radius: 3px; background: var(--raise-strong); margin-top: 5px; overflow: hidden; }
+.pve-bar i u { display: block; height: 100%; border-radius: 3px; background: var(--up); transition: width 0.5s ease; }
+.pve-bar i u.high { background: var(--down); }
+.pve-details summary { cursor: pointer; font-weight: 500; padding: 4px 0; }
+.pve-guests { margin-top: 6px; max-height: 260px; overflow-y: auto; }
+.pve-guests li { display: flex; align-items: center; gap: 9px; padding: 6px 0; border-top: 1px solid var(--edge); }
+.pve-guests .grow { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pve-guests .kind, .pve-guests .use { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pve-guests li.off .grow { color: var(--muted); }
+.edit-group > input { margin-top: 0; }
+#now-change { margin-top: 6px; color: var(--text); }
+
 /* --------------------------------------------------------------- kaarten */
 
 .widgets { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; margin-top: 26px; align-items: stretch; }
-.w-weather, .w-todo, .w-countdown, .w-notes { grid-column: span 3; }
-.w-news { grid-column: span 8; }
-.w-otd { grid-column: span 4; }
+.w-weather, .w-todo, .w-notes { grid-column: span 4; }
+.w-news { grid-column: 1 / -1; }
 
 .card {
   background: var(--glass); border: 1px solid var(--edge); border-radius: 14px; padding: 18px 20px 20px; min-width: 0;
@@ -251,25 +272,17 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
 .wx-range i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, #6fb7e8, var(--gold)); }
 .wx-sky { margin-top: 12px; color: var(--muted); font-size: 14px; }
 
-.cd-when { color: var(--muted); font-size: 14px; white-space: nowrap; }
-.cd-when.soon { color: var(--gold); font-weight: 600; }
-.cd-days { font: 600 22px/1 var(--display); min-width: 2.2ch; text-align: right; font-variant-numeric: tabular-nums; }
-
 .todo-check { width: 18px; height: 18px; flex: none; }
 .rows li.done .grow { color: var(--muted); text-decoration: line-through; }
 .w-notes { display: flex; flex-direction: column; }
 #notes { flex: 1; min-height: 150px; }
 
-.news { columns: 2; column-gap: 34px; }
+.news { columns: 3; column-gap: 34px; }
 .news li { break-inside: avoid; padding: 8px 0; border-top: 1px solid var(--edge); }
 .news li.quiet { border-top: 0; }
 .news a { text-decoration: none; font-weight: 500; }
 .news a:hover { text-decoration: underline; text-underline-offset: 3px; }
 .news small { display: block; color: var(--muted); font-size: 13px; }
-
-.otd-year { font: 300 60px/1 var(--display); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; color: var(--gold); }
-.otd-text { margin-top: 10px; font-size: 16px; max-width: 46ch; }
-.otd-more { display: inline-block; margin-top: 12px; color: var(--muted); font-size: 14px; text-underline-offset: 3px; }
 
 /* ---------------------------------------------------------- wereldbol */
 
@@ -365,8 +378,9 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
 /* -------------------------------------------------------------- schermen */
 
 @media (max-width: 1280px) {
-  .w-weather, .w-todo, .w-countdown, .w-notes { grid-column: span 6; }
-  .w-news, .w-otd { grid-column: 1 / -1; }
+  .news { columns: 2; }
+  .w-weather, .w-todo { grid-column: span 6; }
+  .w-notes, .w-news { grid-column: 1 / -1; }
 }
 @media (max-width: 760px) {
   .view-home { padding: 14px 14px 40px; }
@@ -381,6 +395,7 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
   .widgets { grid-template-columns: 1fr; }
   .widgets > .card { grid-column: 1 / -1; }
   .news { columns: 1; }
+  .pve { grid-template-columns: 1fr; }
   .tiles { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
   .tile-state span { display: none; }
   .edit-link { grid-template-columns: 1fr 1fr; }
