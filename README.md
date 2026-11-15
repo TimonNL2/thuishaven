@@ -17,7 +17,8 @@ of onweer zie je dat ook op je scherm.
   mag kijken (rol PVEAuditor). Het geheim blijft op de server en komt niet in de browser.
 - **Weer** (per uur en per dag), **te doen**, een **kladblok** en **nieuws** uit je
   eigen RSS-bronnen.
-- **Twee achtergronden**: getekend of realistisch, te wisselen met de knop rechtsboven.
+- **Vijf landschappen**: bergmeer, hooggebergte, heuvelland, woestijn en eilanden, te kiezen
+  met de knop Achtergrond. Het weer en het licht kloppen in elk landschap.
 - **Wereldbol** op een eigen scherm: satellietbeelden waarop je tot straatniveau inzoomt,
   een nachtstand met stadslichten, punten voor waar je bent geweest of nog heen wilt,
   bezochte landen die oplichten, de afstand tot huis en waar het ISS nu vliegt.
@@ -49,7 +50,7 @@ Er is niets te installeren behalve Python 3.8 of nieuwer:
 python3 server.py
 ```
 
-Een bepaalde lucht bekijken kan met `?lucht=sneeuw&uur=23` achter het adres (en `&stijl=echt` voor de realistische variant)
+Een bepaalde lucht bekijken kan met `?lucht=sneeuw&uur=23` achter het adres (en `&landschap=woestijn` voor een ander landschap)
 (helder, halfbewolkt, bewolkt, motregen, regen, sneeuw, mist of onweer).
 
 ## Goed om te weten

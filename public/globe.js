@@ -188,16 +188,12 @@ function applyMode() {
   map.setLayoutProperty('labels', 'visibility', opts().labels !== false ? 'visible' : 'none');
 }
 
-function panelPadding() {
-  return window.innerWidth > 760 ? { left: 420, top: 0, right: 0, bottom: 0 } : { left: 0, top: 0, right: 0, bottom: 0 };
-}
-
 function flyTo(lon, lat, zoom) {
   if (!mapReady) return;
   lastInteract = performance.now();
   flying = true;
   map.once('moveend', () => { flying = false; lastInteract = performance.now(); });
-  const target = { center: [lon, lat], zoom: zoom == null ? Math.max(map.getZoom(), 4.2) : zoom, padding: panelPadding() };
+  const target = { center: [lon, lat], zoom: zoom == null ? Math.max(map.getZoom(), 4.2) : zoom };
   if (reducedMotion.matches) map.jumpTo(target); else map.flyTo(Object.assign(target, { duration: 1800, essential: true }));
 }
 
@@ -237,7 +233,6 @@ function createMap() {
   });
   map.touchZoomRotate.disableRotation();
   map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right');
-  map.setPadding(panelPadding());
 
   map.on('load', () => {
     mapReady = true;
@@ -274,7 +269,6 @@ function createMap() {
     const country = countryAt(e.lngLat.lng, e.lngLat.lat, true);
     addPlace({ name: country ? 'Ergens in ' + countryName(country.ck) : 'Nieuwe plek', lat: e.lngLat.lat, lon: e.lngLat.lng }, true);
   });
-  window.addEventListener('resize', () => { if (map && isGlobeView()) map.setPadding(panelPadding()); });
   requestAnimationFrame(spin);
 }
 
@@ -289,7 +283,7 @@ function spin(now) {
 }
 
 function openGlobe() {
-  if (map) { map.resize(); map.setPadding(panelPadding()); return; }
+  if (map) { map.resize(); return; }
   if (opening) return;
   opening = (async () => {
     try {
@@ -364,7 +358,7 @@ function renderTravel() {
   const wishes = places().length - been.length;
   line.replaceChildren();
   if (!places().length) {
-    line.append('Waar ben je allemaal geweest? Zoek hieronder je eerste plek.');
+    line.append('Waar ben je allemaal geweest? Zoek een plek, of dubbelklik op de bol.');
   } else {
     const countries = visitedKeys().size;
     const parts = [];

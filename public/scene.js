@@ -1,7 +1,8 @@
-// De achtergrond van het startscherm: een bergmeer tussen de dennen, onder een
-// lucht die het echte weer bij jou thuis volgt. De zon staat waar hij nu echt
-// staat, de wolken drijven met de wind mee, en bij regen, sneeuw, mist of onweer
-// zie je dat ook hier.
+// De achtergrond van het startscherm: een landschap onder een lucht die het echte
+// weer bij jou thuis volgt. De zon staat waar hij nu echt staat, de wolken drijven
+// met de wind mee, en bij regen, sneeuw, mist of onweer zie je dat ook hier.
+// Dit bestand regelt de lucht, de zon, de sterren en de neerslag; scene-real.js
+// tekent het landschap zelf.
 import { store, on, $, subsolarPoint } from './core.js';
 import * as painter from './scene-real.js';
 
@@ -26,12 +27,11 @@ let real = { kind: 'partly', cloud: 0.4, wind: 12, windDir: 240 };
 let look = null;          // het weer dat nu getekend wordt
 let pal = null;           // kleuren die bij dit moment horen
 let sun = { alt: 30, az: 180 };
-let clouds = [], sprites = [], drops = [], twinkles = [];
-let starLayer = null, landLayer = null;
+let drops = [], twinkles = [];
+let starLayer = null;
 let lastFrame = 0, lastBuild = 0, flash = 0, nextFlash = 0, meteor = null, nextMeteor = 0;
 let running = false;
-let realistic = false;    // getekend of realistisch; te kiezen bij Instellingen of met ?stijl=echt
-let env = null;           // wat de realistische tekenaar nodig heeft
+let env = null;           // wat de landschapstekenaar nodig heeft
 
 // ------------------------------------------------------------ hulpjes
 
@@ -128,58 +128,6 @@ function buildPalette() {
   };
 }
 
-// -------------------------------------------------------------- wolken
-
-function makeSprite(seed, w, h) {
-  const rand = rng(seed);
-  const c = document.createElement('canvas');
-  c.width = Math.ceil(w); c.height = Math.ceil(h);
-  const x = c.getContext('2d');
-  const blur = Math.max(2, h * 0.045);
-  if ('filter' in x) x.filter = 'blur(' + blur + 'px)';
-  x.fillStyle = '#fff';
-  const baseY = h * 0.74, puffs = 6 + Math.floor(rand() * 5);
-  x.beginPath();
-  for (let i = 0; i < puffs; i++) {
-    const t = i / (puffs - 1);
-    const r = h * (0.16 + 0.24 * Math.sin(Math.PI * (0.12 + 0.76 * t))) * (0.75 + rand() * 0.5);
-    const cx = w * (0.16 + 0.68 * t);
-    x.moveTo(cx + r, baseY - r * 0.55);
-    x.arc(cx, baseY - r * 0.55, r, 0, Math.PI * 2);
-  }
-  x.rect(w * 0.13, baseY - h * 0.16, w * 0.74, h * 0.17);
-  x.fill();
-  if ('filter' in x) x.filter = 'none';
-  x.globalCompositeOperation = 'source-in';
-  const g = x.createLinearGradient(0, h * 0.1, 0, baseY + blur);
-  g.addColorStop(0, css(pal.cloudTop));
-  g.addColorStop(0.55, css(mix(pal.cloudTop, pal.cloudBase, 0.35)));
-  g.addColorStop(1, css(pal.cloudBase));
-  x.fillStyle = g;
-  x.fillRect(0, 0, w, h);
-  return c;
-}
-
-function buildClouds() {
-  const unit = clamp(Math.min(W, H * 1.6) / 1400, 0.5, 1.4);
-  const rand = rng(77);
-  const all = [];
-  for (let i = 0; i < 18; i++) {
-    const depth = 0.45 + rand() * 0.55;                 // dichterbij is groter en sneller
-    const w = (300 + rand() * 360) * unit * depth;
-    all.push({ seed: 1000 + i * 31, w, h: w * (0.36 + rand() * 0.12), depth, x: rand(), y: 0.04 + rand() * 0.4 * (1.1 - depth * 0.5) });
-  }
-  const heavy = pal.dull > 0.6;
-  const count = Math.round(clamp(look.cloud + (heavy ? 0.25 : 0)) * 15);
-  const previous = clouds;
-  clouds = all.slice(0, count).sort((a, b) => a.depth - b.depth);
-  clouds.forEach((cloud) => {
-    const old = previous.find((p) => p.seed === cloud.seed);
-    if (old) cloud.x = old.x;                             // niet verspringen bij het verversen
-  });
-  sprites = clouds.map((cloud) => makeSprite(cloud.seed, cloud.w, cloud.h));
-}
-
 // ------------------------------------------------------ neerslag, sterren
 
 function buildDrops() {
@@ -216,129 +164,6 @@ function buildStars() {
   }
   twinkles = [];
   for (let i = 0; i < 26; i++) twinkles.push({ x: rand() * W, y: rand() * H * 0.6, r: 1 + rand() * 0.9, phase: rand() * 6.28 });
-}
-
-// ------------------------------------------------------------ landschap
-
-function noise(seed) {
-  const rand = rng(seed), values = [];
-  for (let i = 0; i < 64; i++) values.push(rand());
-  return (x) => {
-    const i = Math.floor(x), f = x - i, u = f * f * (3 - 2 * f);
-    return values[((i % 64) + 64) % 64] * (1 - u) + values[(((i + 1) % 64) + 64) % 64] * u;
-  };
-}
-
-/** Een bergkam als rij punten; 'sharp' maakt er spitse toppen van. */
-function ridge(seed, base, height, detail, sharp) {
-  const n = noise(seed), points = [];
-  const steps = Math.ceil(W / 6);
-  for (let i = 0; i <= steps; i++) {
-    const t = (i / steps) * detail * (W / Math.max(H, 1)) + seed;
-    let v = 0.58 * n(t) + 0.27 * n(t * 2.3 + 9) + 0.15 * n(t * 5.1 + 3);
-    if (sharp) v = 0.25 + 0.75 * (1 - Math.abs(2 * (0.6 * n(t * 0.9) + 0.4 * n(t * 2.1 + 5)) - 1)) * (0.6 + 0.4 * v);
-    points.push([i * 6, base - height * v]);
-  }
-  return points;
-}
-
-function tracePath(x, points, bottom) {
-  x.beginPath();
-  x.moveTo(0, bottom);
-  for (const p of points) x.lineTo(p[0], p[1]);
-  x.lineTo(W, bottom);
-  x.closePath();
-}
-
-function pine(x, cx, base, h, rand) {
-  x.fillRect(cx - h * 0.012, base - h * 0.12, h * 0.024, h * 0.14);
-  const tiers = 9;
-  x.beginPath();
-  x.moveTo(cx, base - h);
-  for (let i = 1; i <= tiers; i++) {           // rechterkant omlaag
-    const y = base - h + (h * 0.9 * i) / tiers, w = h * (0.03 + 0.2 * (i / tiers)) * (0.85 + rand() * 0.3);
-    x.lineTo(cx + w, y); x.lineTo(cx + w * 0.45, y - h * 0.012);
-  }
-  for (let i = tiers; i >= 1; i--) {           // linkerkant omhoog
-    const y = base - h + (h * 0.9 * i) / tiers, w = h * (0.03 + 0.2 * (i / tiers)) * (0.85 + rand() * 0.3);
-    x.lineTo(cx - w * 0.45, y - h * 0.012); x.lineTo(cx - w, y);
-  }
-  x.closePath(); x.fill();
-}
-
-function buildLand() {
-  landLayer = document.createElement('canvas');
-  landLayer.width = canvas.width; landLayer.height = canvas.height;
-  const x = landLayer.getContext('2d');
-  x.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const shore = H * 0.8;
-  const horizonColor = pal.sky[2];
-  const foggy = look.kind === 'fog' ? 1 : pal.wet ? 0.55 : 0.22 + pal.golden * 0.15;
-
-  const layers = [
-    { points: ridge(11, shore, H * 0.4, 2.2, true), color: mix(pal.land, horizonColor, 0.66), snow: true },
-    { points: ridge(23, shore, H * 0.27, 3.1, true), color: mix(pal.land, horizonColor, 0.42) },
-    { points: ridge(37, shore + 2, H * 0.13, 4.6, false), color: mix(pal.land, horizonColor, 0.16), forest: true },
-  ];
-
-  for (const layer of layers) {
-    tracePath(x, layer.points, shore + 4);
-    x.fillStyle = css(layer.color); x.fill();
-    if (layer.snow) {
-      // Sneeuw op de toppen; bij sneeuwval zakt de sneeuwgrens.
-      const top = Math.min(...layer.points.map((p) => p[1]));
-      const line = top + (shore - top) * (look.kind === 'snow' ? 0.62 : 0.3);
-      x.save(); tracePath(x, layer.points, shore + 4); x.clip();
-      const g = x.createLinearGradient(0, top, 0, line);
-      g.addColorStop(0, css(pal.snow, look.kind === 'snow' ? 0.9 : 0.7)); g.addColorStop(1, css(pal.snow, 0));
-      x.fillStyle = g; x.fillRect(0, top, W, line - top);
-      x.restore();
-    }
-    if (layer.forest) {
-      // Een kartelrand van dennen langs de dichtste heuvelrug.
-      const rand = rng(5);
-      x.fillStyle = css(layer.color);
-      for (const [px, py] of layer.points) {
-        const h = H * (0.012 + rand() * 0.02);
-        x.beginPath(); x.moveTo(px - h * 0.32, py + 2); x.lineTo(px, py - h); x.lineTo(px + h * 0.32, py + 2); x.fill();
-      }
-    }
-    // Nevel tussen de ruggen geeft diepte, en mist als het mist.
-    const g = x.createLinearGradient(0, shore - H * 0.2, 0, shore);
-    g.addColorStop(0, css(pal.haze, 0)); g.addColorStop(1, css(pal.haze, 0.5 * foggy));
-    x.fillStyle = g; x.fillRect(0, shore - H * 0.2, W, H * 0.2 + 4);
-  }
-
-  // Het meer: een spiegel van de lucht, met de bergen er vaag in.
-  const water = x.createLinearGradient(0, shore, 0, H);
-  water.addColorStop(0, css(mix(horizonColor, pal.land, 0.2)));
-  water.addColorStop(0.5, css(mix(pal.sky[1], pal.land, 0.35)));
-  water.addColorStop(1, css(mix(pal.sky[0], [4, 9, 18], 0.5)));
-  x.fillStyle = water; x.fillRect(0, shore, W, H - shore);
-  x.save();
-  x.beginPath(); x.rect(0, shore, W, H - shore); x.clip();
-  x.translate(0, shore * 2); x.scale(1, -1);
-  x.globalAlpha = 0.3;
-  for (const layer of layers) { tracePath(x, layer.points, shore); x.fillStyle = css(layer.color); x.fill(); }
-  x.restore();
-  x.strokeStyle = css(pal.haze, 0.3); x.lineWidth = 1;
-  const ripple = rng(88);
-  for (let i = 0; i < 26; i++) {
-    const y = shore + 6 + ripple() * ripple() * (H - shore), w = 30 + ripple() * 120, rx = ripple() * W;
-    x.globalAlpha = 0.5 * (1 - (y - shore) / (H - shore));
-    x.beginPath(); x.moveTo(rx, y); x.lineTo(rx + w, y); x.stroke();
-  }
-  x.globalAlpha = 1;
-
-  // Oevers en dennen op de voorgrond, links en rechts als een lijst om het beeld.
-  x.fillStyle = css(scale(pal.land, 0.42));
-  const u = Math.min(H, W * 0.9);
-  x.beginPath(); x.ellipse(W * 0.02, H * 1.02, W * 0.3, H * 0.13, 0, 0, 6.3); x.fill();
-  x.beginPath(); x.ellipse(W * 0.99, H * 1.03, W * 0.27, H * 0.15, 0, 0, 6.3); x.fill();
-  const trees = rng(404);
-  const stand = [[0.015, 0.62], [0.06, 0.44], [0.1, 0.52], [0.145, 0.3], [0.19, 0.22],
-    [0.985, 0.68], [0.94, 0.5], [0.895, 0.4], [0.86, 0.27], [0.82, 0.2]];
-  for (const [fx, fh] of stand) pine(x, fx * W, H * (0.955 + trees() * 0.03), u * fh * (0.9 + trees() * 0.2), trees);
 }
 
 // --------------------------------------------------------------- tekenen
@@ -428,17 +253,6 @@ function drawSunAndMoon(horizon) {
   }
 }
 
-function drawClouds(dt, horizon) {
-  const push = windPush() * (6 + look.wind * 0.9);
-  clouds.forEach((cloud, i) => {
-    const span = W + cloud.w;
-    if (dt) cloud.x = ((((cloud.x * span - push * cloud.depth * dt) % span) + span) % span) / span;
-    ctx.globalAlpha = 0.72 + cloud.depth * 0.28;
-    ctx.drawImage(sprites[i], cloud.x * span - cloud.w, Math.min(cloud.y * H, horizon - cloud.h * 1.05));
-  });
-  ctx.globalAlpha = 1;
-}
-
 function drawDrops(dt, t) {
   if (!drops.length) return;
   const push = windPush() * clamp(look.wind / 40, 0.15, 1);
@@ -485,22 +299,15 @@ function frame(t) {
   lastFrame = t;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const horizon = drawSky();
-  if (realistic) {
-    env.push = windPush() * (6 + look.wind * 0.9);
-    env.still = reducedMotion.matches;
-    drawStars(t, dt);
-    painter.drawSkyExtras(ctx, env);
-    drawSunAndMoon(horizon);
-    painter.drawClouds(ctx, env, dt);
-    painter.drawLand(ctx, env);
-    painter.drawWater(ctx, canvas, env, t);
-    painter.drawFore(ctx, env);
-  } else {
-    drawStars(t, dt);
-    drawSunAndMoon(horizon);
-    drawClouds(dt, horizon);
-    ctx.drawImage(landLayer, 0, 0, W, H);
-  }
+  env.push = windPush() * (6 + look.wind * 0.9);
+  env.still = reducedMotion.matches;
+  drawStars(t, dt);
+  painter.drawSkyExtras(ctx, env);
+  drawSunAndMoon(horizon);
+  painter.drawClouds(ctx, env, dt);
+  painter.drawLand(ctx, env);
+  painter.drawWater(ctx, canvas, env, t);
+  painter.drawFore(ctx, env);
 
   if (look.kind === 'fog') {
     const g = ctx.createLinearGradient(0, H * 0.3, 0, H);
@@ -522,18 +329,12 @@ function frame(t) {
 // ---------------------------------------------------------------- regie
 
 function buildLayers() {
-  const style = params.get('stijl');
-  realistic = style ? style === 'echt' : store.state.settings.scene === 'real';
   buildDrops();
-  if (realistic) {
-    const horizon = H * 0.8, at = sunOnScreen(horizon);
-    const veil = look.kind === 'fog' ? 0 : 1 - clamp((look.cloud - 0.6) * 2.5) * (pal.dull > 0.5 ? 1 : 0.6);
-    env = { W, H, dpr, pal, look, sunX: at.x, sunY: at.y, sunUp: sun.alt > -3, veil };
-    painter.build(env);
-  } else {
-    buildClouds();
-    buildLand();
-  }
+  const horizon = H * 0.8, at = sunOnScreen(horizon);
+  const veil = look.kind === 'fog' ? 0 : 1 - clamp((look.cloud - 0.6) * 2.5) * (pal.dull > 0.5 ? 1 : 0.6);
+  const scene = params.get('landschap') || store.state.settings.landscape || 'meer';
+  env = { W, H, dpr, pal, look, scene, sunX: at.x, sunY: at.y, sunUp: sun.alt > -3, veil };
+  painter.build(env);
 }
 
 function rebuild() {

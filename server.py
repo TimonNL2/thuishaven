@@ -60,7 +60,7 @@ DEFAULT_STATE = {
         "home": {"name": "Amsterdam", "country": "Nederland", "lat": 52.374, "lon": 4.89},
         "engine": "duckduckgo",
         "sky": "auto",
-        "scene": "simple",
+        "landscape": "meer",
         "feeds": [
             "https://feeds.nos.nl/nosnieuwsalgemeen",
             "https://tweakers.net/feeds/mixed.xml",

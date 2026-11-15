@@ -1,7 +1,7 @@
-// De realistische variant van de achtergrond. Zelfde onderwerp als de getekende
-// versie (bergmeer, dennen, het echte weer), maar per pixel berekend: bergwanden
-// met licht en schaduw vanaf de kant van de zon, rots, sneeuw en bos, wolken uit
-// ruis in plaats van bolletjes, en een meer dat de lucht echt weerspiegelt.
+// De landschappen van de achtergrond. Alles wordt per pixel berekend: bergwanden
+// met licht en schaduw vanaf de kant van de zon, rots, sneeuw, bos, gras of zand,
+// wolken uit ruis, en water dat de lucht echt weerspiegelt. Elk landschap is een
+// recept in SCENES; een nieuw landschap toevoegen is een recept erbij zetten.
 
 const clamp = (x, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, x));
 const mix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
@@ -17,6 +17,60 @@ function rng(seed) {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+// ------------------------------------------------------------ recepten
+
+// Per laag: seed, hoogte (amp), hoeveel toppen (freq), vorm en materiaal.
+// 'cut' laat een laag deels onder water zakken, zodat er losse eilanden ontstaan.
+export const SCENES = {
+  meer: {
+    name: 'Bergmeer',
+    layers: [
+      { seed: 3.1, amp: 0.7, freq: 1.5, shape: 'sharp', mat: 'rock' },
+      { seed: 47.7, amp: 0.46, freq: 2.4, shape: 'sharp', mat: 'rock' },
+      { seed: 91.3, amp: 0.15, freq: 3.6, shape: 'smooth', mat: 'forest', trees: true },
+    ],
+    snow: 0.62, treeline: 0.2, water: true, fore: 'pines',
+  },
+  alpen: {
+    name: 'Hooggebergte',
+    layers: [
+      { seed: 12.4, amp: 0.86, freq: 1.15, shape: 'sharp', mat: 'rock' },
+      { seed: 63.2, amp: 0.6, freq: 1.9, shape: 'sharp', mat: 'rock' },
+      { seed: 28.9, amp: 0.26, freq: 3.1, shape: 'sharp', mat: 'rock' },
+    ],
+    snow: 0.44, treeline: 0.05, water: true, fore: 'rocks',
+    rock: [[52, 58, 78], [150, 148, 152]],
+  },
+  heuvels: {
+    name: 'Heuvelland',
+    layers: [
+      { seed: 5.5, amp: 0.36, freq: 1.0, shape: 'smooth', mat: 'grass' },
+      { seed: 71.1, amp: 0.26, freq: 1.7, shape: 'smooth', mat: 'grass' },
+      { seed: 33.3, amp: 0.14, freq: 2.6, shape: 'smooth', mat: 'forest', trees: true },
+    ],
+    snow: 9, treeline: -1, water: true, fore: 'grass',
+  },
+  woestijn: {
+    name: 'Woestijn',
+    layers: [
+      { seed: 8.8, amp: 0.5, freq: 1.2, shape: 'mesa', mat: 'rock' },
+      { seed: 52.5, amp: 0.34, freq: 1.9, shape: 'mesa', mat: 'rock' },
+      { seed: 17.2, amp: 0.1, freq: 2.4, shape: 'smooth', mat: 'sand' },
+    ],
+    snow: 9, treeline: -1, water: false, fore: 'rocks',
+    rock: [[84, 40, 36], [222, 132, 84]],
+  },
+  eilanden: {
+    name: 'Eilanden',
+    layers: [
+      { seed: 40.4, amp: 0.5, freq: 0.9, shape: 'smooth', mat: 'rock', cut: 0.42 },
+      { seed: 77.9, amp: 0.42, freq: 1.5, shape: 'sharp', mat: 'rock', cut: 0.2 },
+      { seed: 21.6, amp: 0.3, freq: 2.1, shape: 'smooth', mat: 'forest', trees: true, cut: 0.52 },
+    ],
+    snow: 9, treeline: 0.16, water: true, fore: 'rocks',
+  },
+};
 
 // ----------------------------------------------------------------- ruis
 
@@ -44,8 +98,8 @@ function fbm(x, y, octaves, period = 256) {
   let sum = 0, amp = 0.5, total = 0;
   for (let i = 0; i < octaves; i++) {
     sum += amp * noise(x, y, period);
-    total += amp; amp *= 0.5; x *= 2; y *= 2; period *= 2;
-    if (period > 256) period = 256;
+    total += amp; amp *= 0.5; x *= 2; y *= 2;
+    period = Math.min(256, period * 2);
   }
   return sum / total;
 }
@@ -54,56 +108,67 @@ const hash = (x, y) => (Math.imul(x * 374761393 + y * 668265263, 1274126177) >>>
 
 // ------------------------------------------------------- vorm van het land
 
-let geo = null;      // hangt alleen van de schermmaat af
+let geo = null;      // hangt van de schermmaat en het gekozen landschap af
 let cloudField = null;
 let land = null, fore = null, cloudTex = null, grain = null;
 let offsetA = 0, offsetB = 0;
 let ripples = [];
 
 const CW = 768, CH = 256;
+const GROUND = 3;    // de vlakte op de voorgrond, in landschappen zonder water
 
 function buildCloudField() {
   const dens = new Float32Array(CW * CH), up = new Float32Array(CW * CH);
   for (let y = 0; y < CH; y++) {
-    for (let x = 0; x < CW; x++) {
-      // Horizontaal uitgerekt: wolkenbanken zijn breder dan hoog.
-      dens[y * CW + x] = fbm((x / CW) * 8, (y / CH) * 5.5 + 11, 5, 8);
-    }
+    // Horizontaal uitgerekt: wolkenbanken zijn breder dan hoog.
+    for (let x = 0; x < CW; x++) dens[y * CW + x] = fbm((x / CW) * 8, (y / CH) * 5.5 + 11, 5, 8);
   }
   for (let y = 0; y < CH; y++) for (let x = 0; x < CW; x++) up[y * CW + x] = dens[Math.max(0, y - 7) * CW + x];
   cloudField = { dens, up };
 }
 
-function buildGeometry(W, H) {
+function profile(spec, u) {
+  const s = spec.seed, fold = (n) => 1 - Math.abs(2 * n - 1);
+  if (spec.shape === 'sharp') {
+    const m = 0.5 * Math.pow(fold(noise(u, s)), 1.25) + 0.26 * fold(noise(u * 2.3 + 7, s)) + 0.13 * noise(u * 5.7, s + 3)
+      + 0.07 * noise(u * 13, s + 5) + 0.04 * noise(u * 31, s + 9);
+    return m * (0.5 + 0.6 * noise(u * 0.4 + 3, s + 1));
+  }
+  if (spec.shape === 'mesa') {
+    // Tafelbergen: steile wanden, platte bovenkant, met hier en daar een trede.
+    const v = 0.62 * noise(u, s) + 0.38 * noise(u * 2.6 + 4, s + 2);
+    return 0.58 * smooth(0.4, 0.48, v) + 0.26 * smooth(0.58, 0.63, v) + 0.12 * v + 0.04 * noise(u * 9, s + 6);
+  }
+  return 0.6 * noise(u, s) + 0.3 * noise(u * 2.2, s + 2) + 0.1 * noise(u * 6, s + 4);
+}
+
+function buildGeometry(W, H, id) {
+  const scene = SCENES[id];
   const LW = Math.min(1280, Math.round(W)), LH = Math.max(200, Math.round((LW * H) / W));
   const shore = Math.round(LH * 0.8);
   const aspect = W / H;
-  const specs = [
-    { seed: 3.1, amp: 0.7, freq: 1.5, sharp: true },
-    { seed: 47.7, amp: 0.46, freq: 2.4, sharp: true },
-    { seed: 91.3, amp: 0.15, freq: 3.6, sharp: false },
-  ];
-  const ridges = specs.map((spec, index) => {
+  const ridges = scene.layers.map((spec) => {
     const line = new Float32Array(LW);
     for (let x = 0; x < LW; x++) {
       const u = (x / LW) * spec.freq * aspect * 0.62 + spec.seed;
-      const fold = (n) => 1 - Math.abs(2 * n - 1);
-      let m;
-      if (spec.sharp) {
-        m = 0.5 * Math.pow(fold(noise(u, spec.seed)), 1.25) + 0.26 * fold(noise(u * 2.3 + 7, spec.seed)) + 0.13 * noise(u * 5.7, spec.seed + 3)
-          + 0.07 * noise(u * 13, spec.seed + 5) + 0.04 * noise(u * 31, spec.seed + 9);
-        m *= 0.5 + 0.6 * noise(u * 0.4 + 3, spec.seed + 1);
-      } else {
-        m = 0.6 * noise(u, spec.seed) + 0.3 * noise(u * 2.2, spec.seed + 2) + 0.1 * noise(u * 6, spec.seed + 4);
-      }
-      line[x] = shore - spec.amp * LH * m;
+      line[x] = shore - spec.amp * LH * (profile(spec, u) - (spec.cut || 0));
     }
     return line;
   });
-  // De lichtval volgt de gladde heuvel; het silhouet krijgt gekartelde boomtoppen.
-  const smoothHill = ridges[2].slice();
-  for (let x = 0; x < LW; x++) ridges[2][x] -= (hash(x >> 1, 7) * 0.9 + (x & 1 ? 0.25 : 0)) * LH * 0.011;
-  const shading = [ridges[0], ridges[1], smoothHill];
+  // De lichtval volgt de gladde vorm; het silhouet van een boslaag krijgt gekartelde boomtoppen.
+  const shading = ridges.map((line) => {
+    const soft = new Float32Array(LW);
+    for (let x = 0; x < LW; x++) {
+      let sum = 0, n = 0;
+      for (let k = -7; k <= 7; k++) { const j = x + k; if (j >= 0 && j < LW) { sum += line[j]; n++; } }
+      soft[x] = sum / n;
+    }
+    return soft;
+  });
+  scene.layers.forEach((spec, L) => {
+    if (!spec.trees) return;
+    for (let x = 0; x < LW; x++) ridges[L][x] -= (hash(x >> 1, 7) * 0.9 + (x & 1 ? 0.25 : 0)) * LH * 0.011;
+  });
 
   const layer = new Uint8Array(LW * LH).fill(255);
   const slope = new Float32Array(LW * LH), tex = new Float32Array(LW * LH), edge = new Float32Array(LW * LH);
@@ -112,23 +177,33 @@ function buildGeometry(W, H) {
     for (let y = top; y < shore; y++) {
       const L = y >= ridges[2][x] - 1 ? 2 : y >= ridges[1][x] - 1 ? 1 : y >= ridges[0][x] - 1 ? 0 : 255;
       if (L === 255) continue;
-      const line = ridges[L], d = y - line[x], i = y * LW + x;
+      const d = y - ridges[L][x], i = y * LW + x;
       // Bergwanden lopen schuin naar beneden, niet recht: de kolom verschuift mee met de diepte.
-      const lean = (noise(x * 0.013 + L * 9, 40 + L) - 0.5) * 2.4;
-      const xs = clamp(Math.round(x + d * lean), 3, LW - 4);
+      const lean = (noise(x * 0.013 + L * 9, 40 + L) - 0.5) * 1.7;
+      const xs = clamp(Math.round(x + d * lean), 5, LW - 6);
       layer[i] = L;
-      slope[i] = (shading[L][xs + 3] - shading[L][xs - 3]) / 6;
+      slope[i] = (shading[L][xs + 5] - shading[L][xs - 5]) / 10;
       tex[i] = 0.6 * fbm((x + d * lean * 0.5) * 0.035, y * 0.06 + L * 17, 4) + 0.4 * fbm(x * 0.12, y * 0.2 + L * 5, 2);
       edge[i] = clamp(d + 1);
     }
+    if (!scene.water) {
+      for (let y = shore; y < LH; y++) {
+        const v = (y - shore) / (LH - shore), i = y * LW + x;
+        // Dichtbij is de structuur grover: zo loopt de vlakte naar de horizon weg.
+        const zoom = 0.08 + v;
+        layer[i] = GROUND;
+        tex[i] = 0.65 * fbm((x - LW / 2) * 0.012 / zoom + 90, 6 / zoom, 4) + 0.35 * fbm((x - LW / 2) * 0.06 / zoom, 30 / zoom, 2);
+        edge[i] = 1;
+      }
+    }
   }
-  geo = { W, H, LW, LH, shore, ridges, layer, slope, tex, edge };
+  geo = { W, H, id, scene, LW, LH, shore, layer, slope, tex, edge };
 }
 
 // ------------------------------------------------------------- inkleuren
 
 function paintLand(env) {
-  const { LW, LH, shore, layer, slope, tex, edge } = geo;
+  const { LW, LH, shore, layer, slope, tex, edge, scene } = geo;
   const { pal, look, sunX } = env;
   land = land && land.width === LW && land.height === LH ? land : Object.assign(document.createElement('canvas'), { width: LW, height: LH });
   const x2 = land.getContext('2d');
@@ -140,32 +215,53 @@ function paintLand(env) {
   const side = Math.abs(lean) < 0.6 ? (lean < 0 ? -0.6 : 0.6) : lean;   // de zon staat nooit pal achter de berg
   const contrast = 1 - pal.dull * 0.65;
   const warm = [255, 168, 112];
-  const rockDark = mix([10, 15, 28], [58, 66, 86], day), rockLight = mix(mix([30, 38, 58], [168, 156, 146], day), warm, golden * 0.5);
+  // Overdag de kleur uit het recept, 's nachts donkerblauw, rond zonsondergang warm aangelicht.
+  const tone = (dark, light) => [mix([8, 12, 24], dark, day), mix(mix([26, 34, 54], light, day), warm, golden * 0.5)];
+  const rock = tone(...(scene.rock || [[58, 66, 86], [168, 156, 146]]));
   const snowDark = mix([34, 44, 72], [142, 162, 200], day), snowLight = mix(mix([112, 128, 166], [252, 253, 255], day), [255, 214, 186], golden * 0.6);
-  const woodDark = mix([3, 6, 10], [12, 30, 30], day), woodLight = mix(mix([9, 14, 20], [52, 84, 60], day), [120, 96, 66], golden * 0.4);
+  const wood = tone([12, 30, 30], [52, 84, 60]);
+  const grass = tone([30, 58, 32], [128, 162, 78]);
+  const sand = tone([126, 82, 58], [236, 186, 128]);
   const hazeColor = mix(pal.sky[2], pal.haze, 0.35);
   const foggy = look.kind === 'fog' ? 1 : pal.wet ? 0.5 : 0.12 + pal.golden * 0.12;
-  const snowLine = look.kind === 'snow' ? 0.3 : 0.62;
+  const snowing = look.kind === 'snow';
+  const snowLine = snowing ? Math.min(0.3, scene.snow) : scene.snow;
   const dim = look.kind === 'storm' ? 0.7 : look.kind === 'rain' ? 0.85 : 1;
   const span = LH * 0.45;
+  const mats = scene.layers.map((l) => l.mat);
 
-  for (let y = 0; y < shore; y++) {
+  for (let y = 0; y < LH; y++) {
     const height = (shore - y) / span;
     for (let x = 0; x < LW; x++) {
       const i = y * LW + x, L = layer[i];
       if (L === 255) continue;
       const t = tex[i];
-      let lit = 0.5 + (slope[i] * side * 2.1 + (t - 0.5) * 1.1) * contrast;
-      lit = clamp(lit + (hash(x, y) - 0.5) * 0.08);
-      let c;
-      if (L === 2 || (L === 1 && height < 0.2 + (t - 0.5) * 0.3)) {
-        c = mix(woodDark, woodLight, clamp(0.15 + lit * 0.5 + (noise(x * 0.55, y * 0.3 + 50) - 0.5) * 0.7 + (t - 0.5) * 0.6));
-      } else if (height > snowLine + (t - 0.5) * 0.45 - Math.abs(slope[i]) * 0.04) {
-        c = mix(snowDark, snowLight, lit);
+      let c, haze;
+      if (L === GROUND) {
+        const v = (y - shore) / (LH - shore);
+        c = mix(sand[0], sand[1], clamp(0.5 + (t - 0.5) * 1.7 * contrast + (hash(x, y) - 0.5) * 0.06));
+        if (snowing) c = mix(c, snowLight, 0.6);
+        haze = clamp((0.34 - v * 1.4) * (1 + foggy * 1.6));
       } else {
-        c = mix(rockDark, rockLight, lit * (0.75 + t * 0.4));
+        let lit = 0.5 + (slope[i] * side * 2.1 + (t - 0.5) * 1.1) * contrast;
+        lit = clamp(lit + (hash(x, y) - 0.5) * 0.08);
+        const mat = mats[L];
+        if (mat === 'forest' || (mat === 'rock' && height < scene.treeline + (t - 0.5) * 0.3)) {
+          c = mix(wood[0], wood[1], clamp(0.15 + lit * 0.5 + (noise(x * 0.55, y * 0.3 + 50) - 0.5) * 0.7 + (t - 0.5) * 0.6));
+        } else if (mat === 'grass') {
+          c = mix(grass[0], grass[1], clamp(0.2 + lit * 0.6 + (noise(x * 0.09, y * 0.2 + 9) - 0.5) * 0.35));
+          if (t > 0.6) c = mix(c, wood[0], smooth(0.6, 0.68, t) * 0.75);        // bosjes op de hellingen
+        } else if (mat === 'sand') {
+          c = mix(sand[0], sand[1], clamp(lit * 0.9 + 0.1));
+        } else if (height > snowLine + (t - 0.5) * 0.45 - Math.abs(slope[i]) * 0.04) {
+          c = mix(snowDark, snowLight, 0.5 + (lit - 0.5) * 0.6 + 0.12);   // sneeuw dempt de plooien
+        } else {
+          c = mix(rock[0], rock[1], lit * (0.75 + t * 0.4));
+          if (scene.layers[L].shape === 'mesa') c = mix(c, rock[0], 0.22 * (Math.floor(y / 5 + t * 2) & 1));   // gesteentelagen
+        }
+        if (snowing && mat !== 'rock') c = mix(c, snowLight, 0.45 * lit);
+        haze = clamp(([0.4, 0.2, 0.03][L] + (1 - clamp(height * 2.2)) * 0.2) * (1 + foggy * 1.6));
       }
-      const haze = clamp(([0.4, 0.2, 0.03][L] + (1 - clamp(height * 2.2)) * 0.2) * (1 + foggy * 1.6));
       c = mix(c, hazeColor, haze);
       const o = i * 4;
       px[o] = c[0] * dim; px[o + 1] = c[1] * dim; px[o + 2] = c[2] * dim; px[o + 3] = 255 * edge[i];
@@ -199,7 +295,9 @@ function paintClouds(env) {
   x2.putImageData(image, 0, 0);
 }
 
-function realPine(x2, cx, base, h, rand) {
+// ------------------------------------------------------------ voorgrond
+
+function pine(x2, cx, base, h, rand) {
   x2.fillRect(cx - h * 0.011, base - h * 0.5, h * 0.022, h * 0.52);
   const tiers = 22;
   for (let i = 0; i < tiers; i++) {
@@ -218,35 +316,60 @@ function realPine(x2, cx, base, h, rand) {
   }
 }
 
+function boulder(x2, cx, cy, r, rand) {
+  x2.beginPath();
+  for (let i = 0; i <= 9; i++) {
+    const a = Math.PI + (i / 9) * Math.PI, k = 0.72 + rand() * 0.4;
+    x2.lineTo(cx + Math.cos(a) * r * k * 1.25, cy + Math.sin(a) * r * k);
+  }
+  x2.lineTo(cx + r * 1.4, cy + r); x2.lineTo(cx - r * 1.4, cy + r);
+  x2.closePath(); x2.fill();
+}
+
 function paintFore(env) {
   const { W, H, dpr, pal } = env;
+  const kind = geo.scene.fore;
   fore = Object.assign(document.createElement('canvas'), { width: Math.round(W * dpr), height: Math.round(H * dpr) });
   const x2 = fore.getContext('2d');
   x2.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const dark = mix([2, 5, 10], [9, 20, 22], pal.day);
-  x2.fillStyle = css(dark);
+  x2.fillStyle = css(mix([2, 5, 10], kind === 'rocks' && !geo.scene.water ? [30, 16, 14] : [9, 20, 22], pal.day));
   const rand = rng(404);
-  // Oevers met een rafelrand van gras.
-  for (const [cx, rx, ry] of [[0.02, 0.31, 0.13], [0.99, 0.28, 0.15]]) {
-    x2.beginPath(); x2.ellipse(W * cx, H * 1.03, W * rx, H * ry, 0, 0, 6.3); x2.fill();
-    for (let i = 0; i < 160; i++) {
+  const u = Math.min(H, W * 0.9);
+  const blades = (count, cx, rx, ry, tall) => {
+    for (let i = 0; i < count; i++) {
       const a = Math.PI + rand() * Math.PI, gx = W * cx + Math.cos(a) * W * rx, gy = H * 1.03 + Math.sin(a) * H * ry;
       if (gy > H) continue;
-      x2.beginPath(); x2.moveTo(gx - 2, gy + 3); x2.lineTo(gx + (rand() - 0.5) * 5, gy - 5 - rand() * 9); x2.lineTo(gx + 2, gy + 3); x2.fill();
+      const len = (5 + rand() * 9) * tall, bend = (rand() - 0.5) * len * 0.7;
+      x2.beginPath(); x2.moveTo(gx - 2, gy + 3); x2.quadraticCurveTo(gx + bend * 0.3, gy - len * 0.6, gx + bend, gy - len); x2.quadraticCurveTo(gx + bend * 0.4, gy - len * 0.5, gx + 2, gy + 3); x2.fill();
+    }
+  };
+  if (kind === 'rocks') {
+    for (const [cx, n] of [[0, 9], [1, 8]]) {
+      for (let i = 0; i < n; i++) {
+        const dx = (cx ? -1 : 1) * rand() * rand() * W * 0.3, r = u * (0.03 + rand() * 0.09) * (1 - Math.abs(dx) / (W * 0.4));
+        boulder(x2, W * cx + dx, H * (1 - rand() * 0.02) - r * 0.6, r, rand);
+      }
+    }
+  } else {
+    for (const [cx, rx, ry] of [[0.02, 0.31, 0.13], [0.99, 0.28, 0.15]]) {
+      x2.beginPath(); x2.ellipse(W * cx, H * 1.03, W * rx, H * ry, 0, 0, 6.3); x2.fill();
+      blades(kind === 'grass' ? 520 : 160, cx, rx, ry, kind === 'grass' ? 3.2 : 1);
     }
   }
-  const u = Math.min(H, W * 0.9);
-  const stand = [[0.015, 0.66], [0.055, 0.46], [0.1, 0.56], [0.14, 0.33], [0.185, 0.24], [0.225, 0.15],
-    [0.985, 0.72], [0.945, 0.52], [0.9, 0.42], [0.862, 0.3], [0.825, 0.21], [0.79, 0.13]];
-  for (const [fx, fh] of stand) realPine(x2, fx * W, H * (0.96 + rand() * 0.03), u * fh * (0.9 + rand() * 0.2), rand);
+  if (kind === 'pines') {
+    const stand = [[0.015, 0.66], [0.055, 0.46], [0.1, 0.56], [0.14, 0.33], [0.185, 0.24], [0.225, 0.15],
+      [0.985, 0.72], [0.945, 0.52], [0.9, 0.42], [0.862, 0.3], [0.825, 0.21], [0.79, 0.13]];
+    for (const [fx, fh] of stand) pine(x2, fx * W, H * (0.96 + rand() * 0.03), u * fh * (0.9 + rand() * 0.2), rand);
+  }
 }
 
 // ------------------------------------------------------------ naar buiten
 
 export function build(env) {
+  const id = SCENES[env.scene] ? env.scene : 'meer';
   if (!cloudField) buildCloudField();
-  if (!geo || geo.W !== env.W || geo.H !== env.H) {
-    buildGeometry(env.W, env.H);
+  if (!geo || geo.W !== env.W || geo.H !== env.H || geo.id !== id) {
+    buildGeometry(env.W, env.H, id);
     const rand = rng(88);
     ripples = Array.from({ length: 110 }, () => ({ x: rand(), y: rand() * rand(), w: 0.008 + rand() * 0.035, phase: rand() * 6.28 }));
   }
@@ -293,8 +416,9 @@ export function drawLand(ctx, env) {
   ctx.drawImage(land, 0, 0, env.W, env.H);
 }
 
-/** Het meer spiegelt wat erboven staat, in dunne strookjes die een beetje deinen. */
+/** Het water spiegelt wat erboven staat, in dunne strookjes die een beetje deinen. */
 export function drawWater(ctx, canvas, env, t) {
+  if (!geo.scene.water) return;
   const { W, H, dpr, pal, sunX, sunUp, veil, still } = env;
   const shore = H * 0.8, depth = H - shore, strip = 3;
   for (let i = 0; i * strip < depth; i++) {

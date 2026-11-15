@@ -2,6 +2,7 @@
 import { store, save, on, emit, h, $, uid, toast, loadState, getJSON, placeSearch } from './core.js';
 import { initGlobe } from './globe.js';
 import { initScene } from './scene.js';
+import { SCENES } from './scene-real.js';
 
 const settings = () => store.state.settings;
 const isWebUrl = (url) => /^https?:\/\//i.test(url || '');
@@ -304,7 +305,7 @@ function renderLinks() {
     h('h3', { text: group.group || 'Overig' }),
     h('div', { class: 'tiles' }, group.items.filter((l) => isWebUrl(l.url)).map((link) => {
       const key = link.name + '\n' + link.url;
-      const tile = old.get(key) || h('a', { class: 'tile', href: link.url, rel: 'noreferrer', 'data-key': key },
+      const tile = old.get(key) || h('a', { class: 'tile', href: link.url, target: '_blank', rel: 'noopener noreferrer', 'data-key': key },
         linkIcon(link),
         h('span', { class: 'tile-text' }, h('span', { class: 'tile-name', text: link.name }), h('span', { class: 'tile-sub', text: hostOf(link.url) })));
       old.delete(key);
@@ -450,7 +451,7 @@ async function loadNews() {
     return;
   }
   const items = data.items.slice(0, 12).map((item) => h('li', {},
-    h('a', { href: item.link, rel: 'noreferrer', text: item.title }),
+    h('a', { href: item.link, target: '_blank', rel: 'noopener noreferrer', text: item.title }),
     h('small', { text: item.source.replace(/\s*(mixed\s*)?rss\s*feed$/i, '') + (item.time ? ', ' + ago(item.time) : '') })));
   if (!items.length) items.push(h('li', { class: 'quiet', text: 'Geen koppen gevonden. Kloppen de RSS-adressen bij Instellingen?' }));
   list.replaceChildren(...items);
@@ -578,6 +579,9 @@ function applyView() {
   $('view-home').hidden = view !== 'home';
   $('view-globe').hidden = view !== 'globe';
   document.title = view === 'globe' ? 'Wereldbol - Thuishaven' : 'Thuishaven';
+  for (const tab of document.querySelectorAll('.tabs a')) {
+    if (tab.dataset.view === view) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
+  }
   emit('view', view);
 }
 
@@ -586,9 +590,28 @@ function initSettings() {
   const s = settings();
   const changed = () => { save('settings'); emit('settings'); };
 
-  const sceneLabel = () => { $('btn-scene').textContent = 'Achtergrond: ' + (s.scene === 'real' ? 'realistisch' : 'getekend'); };
-  sceneLabel();
-  $('btn-scene').addEventListener('click', () => { s.scene = s.scene === 'real' ? 'simple' : 'real'; sceneLabel(); changed(); });
+  // Kiezen uit de landschappen.
+  const sceneButton = $('btn-scene'), sceneMenu = $('scene-menu');
+  const closeMenu = () => { sceneMenu.hidden = true; sceneButton.setAttribute('aria-expanded', 'false'); };
+  const drawMenu = () => sceneMenu.replaceChildren(...Object.entries(SCENES).map(([id, scene]) => h('button', {
+    type: 'button', 'aria-pressed': String((s.landscape || 'meer') === id), text: scene.name,
+    onclick: () => { s.landscape = id; changed(); closeMenu(); sceneButton.focus(); },
+  })));
+  sceneButton.addEventListener('click', () => {
+    if (!sceneMenu.hidden) { closeMenu(); return; }
+    drawMenu(); sceneMenu.hidden = false; sceneButton.setAttribute('aria-expanded', 'true');
+    sceneMenu.querySelector('[aria-pressed="true"]').focus();
+  });
+  document.addEventListener('click', (e) => { if (!sceneMenu.hidden && !e.target.closest('.menu-wrap')) closeMenu(); });
+  sceneMenu.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') { closeMenu(); sceneButton.focus(); }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const items = [...sceneMenu.children];
+      items[(items.indexOf(document.activeElement) + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length].focus();
+    }
+  });
+
   $('btn-settings').addEventListener('click', () => dialog.showModal());
   $('now-change').addEventListener('click', () => { dialog.showModal(); $('set-home-q').focus(); });
 

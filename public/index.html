@@ -18,17 +18,23 @@
 <div class="view view-home" id="view-home">
   <header class="bar">
     <div class="stats" id="stats" aria-label="Toestand van de server"></div>
-    <nav class="bar-nav" aria-label="Schermen">
-      <a class="pill" href="#wereldbol">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-3.5 3.6-3.5 14.4 0 18M12 3c3.5 3.6 3.5 14.4 0 18"/></svg>
-        Wereldbol
-      </a>
-      <button type="button" class="pill" id="btn-scene" title="Wissel tussen de getekende en de realistische achtergrond">Achtergrond: getekend</button>
+    <div class="bar-nav">
+      <nav class="tabs" aria-label="Schermen">
+      <a href="#" data-view="home">Start</a>
+      <a href="#wereldbol" data-view="globe">Wereldbol</a>
+    </nav>
+      <div class="menu-wrap">
+        <button type="button" class="pill" id="btn-scene" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18l6-9 4 6 2.5-3.5L21 18z"/><circle cx="17" cy="7" r="2"/></svg>
+          Achtergrond
+        </button>
+        <div class="menu" id="scene-menu" hidden></div>
+      </div>
       <button type="button" class="pill" id="btn-settings">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
         Instellingen
       </button>
-    </nav>
+    </div>
   </header>
 
   <section class="hello" aria-label="Tijd en weer">
@@ -120,45 +126,49 @@
   <div id="map" role="application" aria-label="Wereldbol met satellietbeelden. Je plekken staan ook in de lijst ernaast."></div>
   <div class="globe-tip" id="globe-tip" hidden></div>
 
-  <aside class="globe-panel card" aria-label="Je plekken">
-    <div class="card-head">
-      <h1>Wereldbol</h1>
-      <a class="pill" href="#">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6.5 9.5V20h11V9.5"/></svg>
-        Startscherm
-      </a>
+  <header class="globe-top">
+    <div class="globe-left">
+      <div class="card globe-search">
+        <div class="place-add">
+          <label class="sr" for="place-q">Voeg een plek toe</label>
+          <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+          <input id="place-q" type="text" placeholder="Voeg een plek toe, bijvoorbeeld Lissabon" autocomplete="off" spellcheck="false">
+          <ul class="results" id="place-results" hidden></ul>
+        </div>
+        <p class="travel-line" id="travel-line"></p>
+      </div>
+      <div class="card place-editor" id="place-editor" hidden></div>
     </div>
-    <p class="travel-line" id="travel-line"></p>
-    <div class="place-add">
-      <label class="sr" for="place-q">Voeg een plek toe</label>
-      <input id="place-q" type="text" placeholder="Voeg een plek toe, bijvoorbeeld Lissabon" autocomplete="off" spellcheck="false">
-      <ul class="results" id="place-results" hidden></ul>
+    <div class="globe-right">
+      <fieldset class="seg" id="globe-mode">
+        <legend class="sr">Beeld</legend>
+        <label><input type="radio" name="globe-mode" value="day"> Dag</label>
+        <label><input type="radio" name="globe-mode" value="night"> Nacht</label>
+      </fieldset>
+      <label class="pill check-pill"><input type="checkbox" id="globe-labels"> Namen</label>
+      <nav class="tabs" aria-label="Schermen">
+      <a href="#" data-view="home">Start</a>
+      <a href="#wereldbol" data-view="globe">Wereldbol</a>
+    </nav>
     </div>
-    <p class="hint">Dubbelklikken op de bol zet daar ook een punt.</p>
-    <div class="place-editor" id="place-editor" hidden></div>
-    <ul class="place-list" id="place-list"></ul>
-  </aside>
+  </header>
 
-  <div class="globe-tools">
-    <fieldset class="seg" id="globe-mode">
-      <legend class="sr">Beeld</legend>
-      <label><input type="radio" name="globe-mode" value="day"> Dag</label>
-      <label><input type="radio" name="globe-mode" value="night"> Nacht</label>
-    </fieldset>
-    <label class="pill check-pill"><input type="checkbox" id="globe-labels"> Namen</label>
-    <button type="button" class="round" id="globe-home" title="Vlieg naar huis" aria-label="Vlieg naar huis">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6.5 9.5V20h11V9.5"/></svg>
-    </button>
-    <button type="button" class="round" id="globe-world" title="Toon de hele wereld" aria-label="Toon de hele wereld">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-3.5 3.6-3.5 14.4 0 18M12 3c3.5 3.6 3.5 14.4 0 18"/></svg>
-    </button>
+  <div class="globe-side">
     <button type="button" class="round" id="globe-in" title="Zoom in" aria-label="Zoom in">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
     </button>
     <button type="button" class="round" id="globe-out" title="Zoom uit" aria-label="Zoom uit">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>
     </button>
+    <button type="button" class="round" id="globe-world" title="Toon de hele wereld" aria-label="Toon de hele wereld">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c-3.5 3.6-3.5 14.4 0 18M12 3c3.5 3.6 3.5 14.4 0 18"/></svg>
+    </button>
+    <button type="button" class="round" id="globe-home" title="Vlieg naar huis" aria-label="Vlieg naar huis">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7M6.5 9.5V20h11V9.5"/></svg>
+    </button>
   </div>
+
+  <ul class="place-list" id="place-list" aria-label="Je plekken"></ul>
 </div>
 
 <!-- ===================================================== dialogen -->
