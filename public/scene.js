@@ -383,7 +383,7 @@ export function initScene() {
   resize();
   rebuild();
   window.addEventListener('resize', resize);
-  const active = () => document.body.dataset.view !== 'globe' && !document.hidden;
+  const active = () => document.body.dataset.view === 'home' && !document.hidden;
   on('weather', (w) => {
     const found = KINDS.find(([codes]) => codes.includes(w.code));
     real = { kind: found ? found[1] : 'overcast', cloud: clamp((w.cloud == null ? 50 : w.cloud) / 100), wind: w.wind || 0, windDir: w.windDir || 0 };

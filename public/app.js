@@ -2,6 +2,7 @@
 import { store, save, on, emit, h, $, uid, toast, loadState, getJSON, placeSearch } from './core.js';
 import { initGlobe } from './globe.js';
 import { initScene } from './scene.js';
+import { initRide } from './ride.js';
 import { SCENES } from './scene-real.js';
 
 const settings = () => store.state.settings;
@@ -252,7 +253,7 @@ function uptimeText(seconds) {
 }
 
 async function loadServer() {
-  if (document.hidden || document.body.dataset.view === 'globe') return;
+  if (document.hidden || document.body.dataset.view !== 'home') return;
   const box = $('stats');
   let s;
   try { s = await getJSON('/api/system', 6000); } catch (err) {
@@ -498,7 +499,7 @@ function pveNode(server, node, single) {
 }
 
 async function loadProxmox() {
-  if (!pveConfig.length || document.hidden || document.body.dataset.view === 'globe') return;
+  if (!pveConfig.length || document.hidden || document.body.dataset.view !== 'home') return;
   const body = $('pve-body');
   let servers;
   try { servers = await getJSON('/api/proxmox/stats', 15000); } catch (err) { return; }
@@ -574,11 +575,12 @@ async function initProxmox() {
 // ----------------------------------------------- schermen en instellingen
 
 function applyView() {
-  const view = location.hash === '#wereldbol' ? 'globe' : 'home';
+  const view = location.hash === '#wereldbol' ? 'globe' : location.hash === '#rit' ? 'ride' : 'home';
   document.body.dataset.view = view;
   $('view-home').hidden = view !== 'home';
   $('view-globe').hidden = view !== 'globe';
-  document.title = view === 'globe' ? 'Wereldbol - Thuishaven' : 'Thuishaven';
+  $('view-ride').hidden = view !== 'ride';
+  document.title = view === 'globe' ? 'Wereldbol - Thuishaven' : view === 'ride' ? 'Rit - Thuishaven' : 'Thuishaven';
   for (const tab of document.querySelectorAll('.tabs a')) {
     if (tab.dataset.view === view) tab.setAttribute('aria-current', 'page'); else tab.removeAttribute('aria-current');
   }
@@ -685,6 +687,7 @@ async function start() {
   initTodos();
   initNotes();
   initGlobe();
+  initRide();
 
   loadWeather(); setInterval(loadWeather, 15 * 60 * 1000);
   loadServer(); setInterval(loadServer, 5000);

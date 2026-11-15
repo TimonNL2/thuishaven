@@ -63,7 +63,7 @@ a { color: inherit; }
 :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
 #sky { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; display: block; }
-body[data-view="globe"] #sky { display: none; }
+body:not([data-view="home"]) #sky { display: none; }
 .view { position: relative; z-index: 1; }
 
 /* ------------------------------------------------------------- knoppen */
@@ -382,6 +382,50 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
 .iss-marker::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3), 0 0 14px #fff; }
 .home-marker { width: 14px; height: 14px; background: #fff; border: 2px solid #0b1522; transform: rotate(45deg); box-shadow: 0 0 10px rgba(255, 255, 255, 0.6); }
 
+/* ------------------------------------------------------------------ rit */
+
+.view-ride { position: fixed; inset: 0; background: #0a121c; overflow: hidden; }
+#ride-map { position: absolute; inset: 0; }
+.ride-left { width: min(430px, 100%); display: grid; gap: 10px; max-height: calc(100vh - 40px); overflow-y: auto; scrollbar-width: thin; }
+.ride-form, .ride-verdict { background: rgba(9, 17, 29, 0.86); padding: 14px; }
+.ride-form { display: grid; gap: 12px; }
+.ride-places { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center; }
+.ride-places .place-add input { padding-left: 12px; height: 40px; }
+.ride-places .place-add input::placeholder { color: var(--text); opacity: 1; font-weight: 500; }
+.ride-places .place-add input:focus::placeholder { color: var(--muted); font-weight: 400; }
+#ride-swap { grid-column: 2; grid-row: 1 / span 2; background: var(--raise); }
+.ride-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ride-label { font-weight: 600; font-size: 14px; min-width: 62px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chips button { border: 1px solid var(--edge); background: var(--raise); border-radius: 999px; padding: 5px 11px; font-size: 14px; }
+.chips button:hover { border-color: var(--edge-strong); }
+.chips button[aria-pressed="true"] { background: var(--text); color: #0b1522; border-color: var(--text); }
+#ride-time { width: 96px; background: rgba(0, 0, 0, 0.28); border: 1px solid var(--edge); border-radius: 8px; padding: 5px 8px; }
+.ride-traffic { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; }
+.ride-traffic input[type="number"] { width: 62px; padding: 5px 6px; text-align: right; }
+
+.ride-verdict { display: grid; gap: 8px; }
+.ride-title { font: 600 30px/1.1 var(--display); letter-spacing: -0.02em; }
+.ride-title.dry { color: var(--up); }
+.ride-title.light { color: #f6d06a; }
+.ride-title.mid { color: #ff9d4d; }
+.ride-title.heavy { color: var(--down); }
+.ride-text { font-size: 16px; }
+.ride-tip { font-weight: 600; padding: 9px 12px; border-radius: 10px; background: var(--raise-strong); }
+.ride-times, .ride-wait { color: var(--muted); }
+.ride-line { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin-top: 4px; }
+.ride-line i { flex: 1; }
+.ride-line-ends { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ride-verdict .ride-label { margin-top: 6px; }
+.ride-slots { display: flex; align-items: flex-end; gap: 3px; height: 54px; }
+.ride-slots button { flex: 1; height: 100%; border: 0; padding: 0; background: var(--raise); border-radius: 4px; display: flex; align-items: flex-end; overflow: hidden; }
+.ride-slots button:hover { background: var(--raise-strong); }
+.ride-slots button[aria-pressed="true"] { outline: 2px solid var(--text); outline-offset: 1px; }
+.ride-slots i { display: block; width: 100%; border-radius: 4px 4px 0 0; }
+.view-ride .maplibregl-ctrl-group { background: var(--glass-solid); }
+.view-ride .maplibregl-ctrl-group button + button { border-top-color: var(--edge); }
+.view-ride .maplibregl-ctrl-group button span { filter: invert(1); }
+
 /* ------------------------------------------------------------- dialogen */
 
 .dialog {
@@ -432,7 +476,8 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--gold); }
   .edit-link { grid-template-columns: 1fr 1fr; }
 
   .globe-top { left: 10px; right: 10px; top: 10px; flex-direction: column-reverse; align-items: stretch; }
-  .globe-left { width: auto; }
+  .globe-left, .ride-left { width: auto; }
+  .ride-left { max-height: 58vh; }
   .globe-right { justify-content: space-between; }
   .globe-side { right: 10px; top: auto; bottom: 110px; transform: none; }
   .place-list { left: 10px; bottom: 44px; max-width: calc(100% - 20px); }

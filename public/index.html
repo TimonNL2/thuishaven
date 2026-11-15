@@ -22,6 +22,7 @@
       <nav class="tabs" aria-label="Schermen">
       <a href="#" data-view="home">Start</a>
       <a href="#wereldbol" data-view="globe">Wereldbol</a>
+      <a href="#rit" data-view="ride">Rit</a>
     </nav>
       <div class="menu-wrap">
         <button type="button" class="pill" id="btn-scene" aria-haspopup="true" aria-expanded="false">
@@ -149,6 +150,7 @@
       <nav class="tabs" aria-label="Schermen">
       <a href="#" data-view="home">Start</a>
       <a href="#wereldbol" data-view="globe">Wereldbol</a>
+      <a href="#rit" data-view="ride">Rit</a>
     </nav>
     </div>
   </header>
@@ -169,6 +171,59 @@
   </div>
 
   <ul class="place-list" id="place-list" aria-label="Je plekken"></ul>
+</div>
+
+<!-- ========================================================= rit -->
+<div class="view view-ride" id="view-ride" hidden>
+  <div id="ride-map" role="application" aria-label="Kaart met je route. De uitleg staat ernaast."></div>
+  <div class="globe-tip" id="ride-tip" hidden></div>
+
+  <header class="globe-top">
+    <div class="ride-left">
+      <div class="card ride-form">
+        <div class="ride-places">
+          <div class="place-add">
+            <label class="sr" for="ride-from">Van</label>
+            <input id="ride-from" type="text" autocomplete="off" spellcheck="false">
+            <ul class="results" id="ride-from-results" hidden></ul>
+          </div>
+          <div class="place-add">
+            <label class="sr" for="ride-to">Naar</label>
+            <input id="ride-to" type="text" autocomplete="off" spellcheck="false">
+            <ul class="results" id="ride-to-results" hidden></ul>
+          </div>
+          <button type="button" class="round" id="ride-swap" title="Draai de rit om (terugweg)" aria-label="Draai de rit om">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4v15M8 19l-3.5-3.5M8 19l3.5-3.5M16 20V5M16 5l-3.5 3.5M16 5l3.5 3.5"/></svg>
+          </button>
+        </div>
+        <div class="ride-row">
+          <span class="ride-label">Vertrek</span>
+          <div class="chips" id="ride-depart">
+            <button type="button" data-offset="0">Nu</button>
+            <button type="button" data-offset="15">Over 15 min</button>
+            <button type="button" data-offset="30">Over 30 min</button>
+            <button type="button" data-offset="60">Over 1 uur</button>
+          </div>
+          <label class="sr" for="ride-time">Vertrektijd</label>
+          <input id="ride-time" type="time">
+        </div>
+        <div class="ride-row">
+          <span class="ride-label">Verkeer</span>
+          <label class="ride-traffic"><input type="radio" name="ride-traffic" value="normal"> Normaal <input id="ride-normal" type="number" min="5" max="600" aria-label="Reistijd bij normaal verkeer, in minuten"> min</label>
+          <label class="ride-traffic"><input type="radio" name="ride-traffic" value="busy"> Druk <input id="ride-busy" type="number" min="5" max="600" aria-label="Reistijd bij druk verkeer, in minuten"> min</label>
+        </div>
+      </div>
+      <div class="card ride-verdict" id="ride-verdict" aria-live="polite"></div>
+    </div>
+    <div class="globe-right">
+      <label class="pill check-pill"><input type="checkbox" id="ride-radar" checked> Regenradar <span class="quiet" id="ride-radar-time"></span></label>
+      <nav class="tabs" aria-label="Schermen">
+      <a href="#" data-view="home">Start</a>
+      <a href="#wereldbol" data-view="globe">Wereldbol</a>
+      <a href="#rit" data-view="ride">Rit</a>
+    </nav>
+    </div>
+  </header>
 </div>
 
 <!-- ===================================================== dialogen -->

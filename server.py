@@ -86,6 +86,7 @@ DEFAULT_STATE = {
     ],
     "todos": [],
     "notes": "",
+    "ride": {"from": None, "to": None, "normal": 0, "busy": 80},
 }
 
 _state_lock = threading.Lock()
@@ -255,6 +256,40 @@ def news():
         return {"items": merged[:24], "errors": errors}
 
     return cached("news:" + "|".join(feeds), 600, produce)
+
+
+# ------------------------------------------------------------------ regen
+
+def _rain_point(point):
+    """Buienradar: regen per vijf minuten voor de komende twee uur, als [["HH:MM", mm per uur], ...]."""
+    def produce():
+        raw = http_get("https://gpsgadget.buienradar.nl/data/raintext?lat=%s&lon=%s" % point, timeout=6)
+        rows = []
+        for line in raw.decode("ascii", "replace").splitlines():
+            value, _, when = line.strip().partition("|")
+            if value.isdigit() and len(when) == 5:
+                level = int(value)
+                rows.append([when, round(10 ** ((level - 109) / 32.0), 2) if level > 0 else 0])
+        return rows
+
+    try:
+        return cached("rain:%s,%s" % point, 240, produce)
+    except Exception:
+        return []
+
+
+def rain_along(text):
+    points = []
+    for part in text.split(";")[:45]:
+        lat, _, lon = part.partition(",")
+        lat, lon = float(lat), float(lon)
+        if not (-90 <= lat <= 90 and -180 <= lon <= 180):
+            raise ValueError("buiten bereik")
+        points.append(("%.2f" % lat, "%.2f" % lon))
+    if not points:
+        return []
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        return list(pool.map(_rain_point, points))
 
 
 # --------------------------------------------------------------- proxmox
@@ -609,6 +644,11 @@ class Handler(BaseHTTPRequestHandler):
                     "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox"})
             if path == "/api/news":
                 return self.send_json(news())
+            if path == "/api/rain":
+                try:
+                    return self.send_json(rain_along(query.get("pts", [""])[0]))
+                except ValueError:
+                    return self.fail(400, "ongeldige punten")
             if path == "/api/proxmox":
                 return self.send_json(proxmox_public())
             if path == "/api/proxmox/stats":

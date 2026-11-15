@@ -19,6 +19,12 @@ of onweer zie je dat ook op je scherm.
   eigen RSS-bronnen.
 - **Vijf landschappen**: bergmeer, hooggebergte, heuvelland, woestijn en eilanden, te kiezen
   met de knop Achtergrond. Het weer en het licht kloppen in elk landschap.
+- **Rit**: rijd ik droog? Kies van waar naar waar je rijdt (handig op de motor of fiets).
+  Je ziet de route op de kaart, gekleurd per stuk weg naar de regen die er valt op het
+  moment dat jij daar langskomt, met de regenradar eronder. Het advies zegt of je een
+  regenbroek nodig hebt en welk vertrekmoment droger is. Regen komt per vijf minuten van
+  Buienradar (twee uur vooruit) en daarna van Open-Meteo. Files worden niet gemeten; je
+  kiest zelf tussen je normale en je drukke reistijd.
 - **Wereldbol** op een eigen scherm: satellietbeelden waarop je tot straatniveau inzoomt,
   een nachtstand met stadslichten, punten voor waar je bent geweest of nog heen wilt,
   bezochte landen die oplichten, de afstand tot huis en waar het ISS nu vliegt.
@@ -59,6 +65,7 @@ Een bepaalde lucht bekijken kan met `?lucht=sneeuw&uur=23` achter het adres (en 
   niet open aan het internet.
 - Bibliotheken, kaartgrenzen en lettertypes worden één keer opgehaald en daarna vanaf
   je eigen server geserveerd. Je browser haalt zelf het weer op bij Open-Meteo, de
-  satellietbeelden bij Esri en NASA, en de positie van het ISS bij wheretheiss.at.
+  satellietbeelden bij Esri en NASA, de positie van het ISS bij wheretheiss.at, en voor
+  een rit de route bij OSRM, de kaart bij OpenStreetMap en de radar bij RainViewer.
 - Verwijderen: `sudo systemctl disable --now thuishaven`, daarna
   `/etc/systemd/system/thuishaven.service` en `/opt/thuishaven` weghalen.
